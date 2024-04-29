@@ -1,7 +1,10 @@
 import gymnasium as gym
 import dill
 import pickle
+import h5py
+import datetime
 import numpy as np
+import os
 from four_room.env import FourRoomsEnv
 from four_room.wrappers import gym_wrapper
 from four_room.shortest_path import find_all_action_values
@@ -10,7 +13,14 @@ from four_room.utils import obs_to_state
 # Create and register a custom environment
 gym.register('MiniGrid-FourRooms-v1', entry_point=FourRoomsEnv)
 
-with open('four_room/configs/fourrooms_train_config.pl', 'rb') as file: train_config = dill.load(file)
+# TODO: Use the following to create offline datasets.
+mazeConfig = 'four_room/configs/fourrooms_train_config.pl'
+
+# TODO: Use the following to test TD3+BC and BC.
+# mazeConfig = 'four_room/configs/fourrooms_test_100_config.pl'
+# mazeConfig = 'four_room/configs/fourrooms_test_0_config.pl'
+
+with open(mazeConfig, 'rb') as file: train_config = dill.load(file)
 
 env = gym_wrapper(gym.make('MiniGrid-FourRooms-v1', 
     agent_pos=train_config['agent positions'],
@@ -40,7 +50,13 @@ class Agent:
 agent = Agent()
 
 num_episodes = 100
-dataset = [] # replay buffer in the D4RL format
+dataset = { # replay buffer in the D4RL format
+    'observations': [],
+    'actions': [],
+    'rewards': [],
+    'next_observations': [],
+    'terminals': [],
+}
 
 for episode in range(num_episodes):
     obs, info = env.reset()
@@ -52,7 +68,11 @@ for episode in range(num_episodes):
         next_obs, reward, done, truncated, info = env.step(action)
 
         # agent.learn(obs, action, reward, next_obs, done)
-        dataset.append((obs, action, reward, next_obs, done))
+        dataset['observations'].append(obs)
+        dataset['actions'].append(action)
+        dataset['rewards'].append(reward)
+        dataset['next_observations'].append(next_obs)
+        dataset['terminals'].append(done)
 
         obs = next_obs
         total_reward += reward
@@ -60,10 +80,16 @@ for episode in range(num_episodes):
     print(f'Episode {episode + 1}: Total Reward = {total_reward}')
 
 
+# Transform dataset arrays to np arrays, like in the DR4L format
+for key in dataset:
+    dataset[key] = np.array(dataset[key])
+
+
 # Save the dataset to a file
-with open('four_room_dataset.pkl', 'wb') as f:
+policy = os.path.basename(__file__)[:-3]
+date_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+filename = f'datasets/{policy}_{num_episodes}x_{date_time}.pkl'
+with open(filename, 'wb') as f:
     pickle.dump(dataset, f)
-
-
 
 env.close()
