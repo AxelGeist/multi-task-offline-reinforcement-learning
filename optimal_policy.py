@@ -1,10 +1,11 @@
 import gymnasium as gym
 import dill
 import pickle
-import h5py
 import datetime
 import numpy as np
 import os
+import imageio
+from pyvirtualdisplay import Display
 from four_room.env import FourRoomsEnv
 from four_room.wrappers import gym_wrapper
 from four_room.shortest_path import find_all_action_values
@@ -20,13 +21,15 @@ mazeConfig = 'four_room/configs/fourrooms_train_config.pl'
 # mazeConfig = 'four_room/configs/fourrooms_test_100_config.pl'
 # mazeConfig = 'four_room/configs/fourrooms_test_0_config.pl'
 
-with open(mazeConfig, 'rb') as file: train_config = dill.load(file)
+with open(mazeConfig, 'rb') as file: 
+    train_config = dill.load(file)
 
 env = gym_wrapper(gym.make('MiniGrid-FourRooms-v1', 
     agent_pos=train_config['agent positions'],
     goal_pos=train_config['goal positions'],
     doors_pos=train_config['topologies'],
-    agent_dir=train_config['agent directions']))
+    agent_dir=train_config['agent directions'],
+    render_mode="rgb_array"))
 
 
 class Agent:
@@ -58,14 +61,20 @@ dataset = { # replay buffer in the D4RL format
     'terminals': [],
 }
 
+
+# with Display(visible=False) as disp:
+images = []
 for episode in range(num_episodes):
     obs, info = env.reset()
+    img = env.render()
     done = False
     total_reward = 0
 
     while not done:
+        images.append(img)
         action = agent.decide_action(obs)  
-        next_obs, reward, done, truncated, info = env.step(action)
+        next_obs, reward, terminated, truncated, info = env.step(action)
+        done = terminated or truncated
 
         # agent.learn(obs, action, reward, next_obs, done)
         dataset['observations'].append(obs)
@@ -76,8 +85,12 @@ for episode in range(num_episodes):
 
         obs = next_obs
         total_reward += reward
+        img = env.render()
     
     print(f'Episode {episode + 1}: Total Reward = {total_reward}')
+
+# visualize the agents actions in the maze
+imageio.mimsave('rendered_episode.gif', [np.array(img) for i, img in enumerate(images) if i%1 == 0], duration=200)
 
 
 # Transform dataset arrays to np arrays, like in the DR4L format
