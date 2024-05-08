@@ -1,0 +1,37 @@
+# Ignore Python bytecode files
+*.pyc
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# Ignore virtual environment directories
+venv/
+env/
+ENV/
+
+# Ignore data files (assuming data is stored separately)
+data/
+
+# Ignore model files (assuming models are saved separately)
+models/
+
+# Ignore logs and outputs
+logs/
+output/
+wandb/
+
+# Ignore cache files
+__pycache__/
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore any compiled code
+*.so
+*.dll
+*.pyd
+
+# Ignore any saved files or directories from IDEs or editors
+.idea/
+.vscode/
