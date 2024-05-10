@@ -13,8 +13,9 @@ from four_room.wrappers import gym_wrapper
 from four_room.shortest_path import find_all_action_values
 from four_room.utils import obs_to_state
 
-# load model -> TODO: choose which suboptimal policy you want
-zip_path = './four_room/checkpoints/DQN_250000_steps.zip'
+# TODO: choose which suboptimal policy you want
+optimality = "50" # chosen success rate in percentage for suboptimal policy
+zip_path = f'./models/DQN_model_at_{optimality}pct.zip'
 model = DQN.load(zip_path)
 
 # Create and register a custom environment
@@ -23,7 +24,7 @@ gym.register('MiniGrid-FourRooms-v1', entry_point=FourRoomsEnv)
 # TODO: Use the following to create offline datasets.
 mazeConfig = 'four_room/configs/fourrooms_train_config.pl'
 
-# TODO: Use the following to test TD3+BC and BC.
+# TODO: Use the following to test SAC-N + BC and BC.
 # mazeConfig = 'four_room/configs/fourrooms_test_100_config.pl'
 # mazeConfig = 'four_room/configs/fourrooms_test_0_config.pl'
 
@@ -37,6 +38,7 @@ env = gym_wrapper(gym.make('MiniGrid-FourRooms-v1',
     agent_dir=train_config['agent directions'],
     render_mode="rgb_array"))
 
+# use 80 to 400 episodes, depending on the success rate of the suboptimal model -> better model = less episodes
 num_episodes = 80
 dataset = { # replay buffer in the D4RL format
     'observations': [],
@@ -82,7 +84,7 @@ for key in dataset:
 # Save the dataset to a file
 policy = os.path.basename(__file__)[:-3]
 date_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-filename = f'datasets/{policy}_{num_episodes}x_{date_time}.pkl'
+filename = f'datasets/{policy}_{optimality}pct_{num_episodes}x_{date_time}.pkl'
 with open(filename, 'wb') as f:
     pickle.dump(dataset, f)
 

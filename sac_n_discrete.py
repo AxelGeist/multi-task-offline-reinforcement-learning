@@ -59,10 +59,10 @@ class TrainConfig:
     buffer_size: int = 1_000_000
     env_name: str = "MiniGrid-FourRooms-v1"
     batch_size: int = 256
-    # num_epochs: int = 3000
-    # num_updates_on_epoch: int = 1000
-    num_epochs: int = 100
-    num_updates_on_epoch: int = 10
+    num_epochs: int = 3000
+    num_updates_on_epoch: int = 1000
+    # num_epochs: int = 100
+    # num_updates_on_epoch: int = 10
     normalize_reward: bool = False
     # evaluation params
     eval_episodes: int = 10
@@ -502,7 +502,7 @@ def eval_actor(
         state = state.reshape(-1) # state needs to be flattened from [4, 9, 9] to [372, 1]
         # print("Eval State: ", state.shape)
         episode_reward = 0.0
-        max_steps = 10
+        max_steps = 1000
         steps_count = 0
         while not done and steps_count < max_steps:
             action = actor.act(state, device)
