@@ -62,10 +62,10 @@ for episode in range(num_episodes):
         next_obs, reward, terminated, truncated, info = env.step(action)
         done = terminated or truncated
 
-        dataset['observations'].append(obs)
-        dataset['actions'].append(action)
+        dataset['observations'].append(obs.reshape(-1)) # flattens the 3d [4, 9, 9] array into a 1d [324, 1] array 
+        dataset['actions'].append(action.reshape(-1)) # transforms the single number to a 1d [372, 1] array 
         dataset['rewards'].append(reward)
-        dataset['next_observations'].append(next_obs)
+        dataset['next_observations'].append(next_obs.reshape(-1)) # flattens the 3d [4, 9, 9] array into a 1d [324, 1] array
         dataset['terminals'].append(done)
 
         obs = next_obs
