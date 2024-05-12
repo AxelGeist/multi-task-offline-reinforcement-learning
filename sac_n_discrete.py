@@ -37,8 +37,8 @@ with open(mazeConfig, 'rb') as file:
     test_config = dill.load(file)
 
 # from fourrooms_dataset_gen import get_random_dataset
-dataset_path_optimal = "./datasets/dataset_gen_optimal_policy_40x_20240506_164208.pkl"
-dataset_path_suboptimal_DQN = "./dataset_gen_suboptimal_policy_80x_20240505_185026.pkl"
+dataset_path_optimal = "./datasets/dataset_gen_optimal_policy_40x.pkl"
+dataset_path_suboptimal_DQN = "./dataset_gen_suboptimal_policy_50pct_80x.pkl"
 
 @dataclass
 class TrainConfig:

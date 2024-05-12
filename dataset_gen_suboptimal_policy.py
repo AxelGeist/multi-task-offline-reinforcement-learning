@@ -14,7 +14,7 @@ from four_room.shortest_path import find_all_action_values
 from four_room.utils import obs_to_state
 
 # TODO: choose which suboptimal policy you want
-optimality = "50" # chosen success rate in percentage for suboptimal policy
+optimality = "50" # chose success rate in percentage for suboptimal policy
 zip_path = f'./models/DQN_model_at_{optimality}pct.zip'
 model = DQN.load(zip_path)
 
@@ -83,8 +83,8 @@ for key in dataset:
 
 # Save the dataset to a file
 policy = os.path.basename(__file__)[:-3]
-date_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-filename = f'datasets/{policy}_{optimality}pct_{num_episodes}x_{date_time}.pkl'
+# date_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+filename = f'datasets/{policy}_{optimality}pct_{num_episodes}x.pkl'
 with open(filename, 'wb') as f:
     pickle.dump(dataset, f)
 

@@ -11,7 +11,7 @@ env/
 ENV/
 
 # Ignore data files (assuming data is stored separately)
-data/
+datasets/
 
 # Ignore model files (assuming models are saved separately)
 models/
