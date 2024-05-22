@@ -15,20 +15,15 @@ from four_room.utils import obs_to_state
 
 # TODO: choose which suboptimal policy you want
 optimality = "50" # chose success rate in percentage for suboptimal policy
-zip_path = f'./models/DQN_model_at_{optimality}pct.zip'
+zip_path = f'./models/dqn/DQN_model_at_{optimality}pct.zip'
 model = DQN.load(zip_path)
 
 # Create and register a custom environment
 gym.register('MiniGrid-FourRooms-v1', entry_point=FourRoomsEnv)
 
-# TODO: Use the following to create offline datasets.
-mazeConfig = 'four_room/configs/fourrooms_train_config.pl'
+trainConfig = 'four_room/configs/fourrooms_train_config.pl'
 
-# TODO: Use the following to test SAC-N + BC and BC.
-# mazeConfig = 'four_room/configs/fourrooms_test_100_config.pl'
-# mazeConfig = 'four_room/configs/fourrooms_test_0_config.pl'
-
-with open(mazeConfig, 'rb') as file: 
+with open(trainConfig, 'rb') as file: 
     train_config = dill.load(file)
 
 env = gym_wrapper(gym.make('MiniGrid-FourRooms-v1', 
@@ -75,7 +70,7 @@ for episode in range(num_episodes):
     print(f'Episode {episode + 1}: Total Reward = {total_reward}')
 
 # visualize the agents actions in the maze
-imageio.mimsave('rendered_episode.gif', [np.array(img) for i, img in enumerate(images) if i%1 == 0], duration=200)
+imageio.mimsave('rendered_suboptimal_policy.gif', [np.array(img) for i, img in enumerate(images) if i%1 == 0], duration=200)
 
 # Transform dataset arrays to np arrays, like in the DR4L format
 for key in dataset:

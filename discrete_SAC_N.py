@@ -3,10 +3,10 @@
 # 2. implementation: https://github.com/snu-mllab/EDAC
 import math
 import os
+import pandas as pd
 import random
 import uuid
-import pickle
-import dill
+from dataclasses import dataclass, field
 from copy import deepcopy
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -18,32 +18,20 @@ import pyrallis
 import torch
 import torch.nn as nn
 import wandb
+import dill
+import pickle
 from torch.distributions import Normal
 from tqdm import trange
 
 from os import sys
-#put the path to the directory that contains your four-rooms repo here!
-# sys.path.append('/Users/caroline/Desktop/projects/repos/')
 from four_room.env import FourRoomsEnv
 from four_room.wrappers import gym_wrapper
 
-gym.register('MiniGrid-FourRooms-v1', FourRoomsEnv)
-
-# TODO: Use the following to test TD3+BC and BC.
-mazeConfig = 'four_room/configs/fourrooms_test_100_config.pl'
-# mazeConfig = 'four_room/configs/fourrooms_test_0_config.pl'
-
-with open(mazeConfig, 'rb') as file: 
-    test_config = dill.load(file)
-
-# from fourrooms_dataset_gen import get_random_dataset
-dataset_path_optimal = "./datasets/dataset_gen_optimal_policy_40x.pkl"
-dataset_path_suboptimal_DQN = "./dataset_gen_suboptimal_policy_50pct_80x.pkl"
 
 @dataclass
-class TrainConfig:
+class Config:
     # wandb params
-    project: str = "CORL"
+    project: str = "SAC-N"
     group: str = "SAC-N"
     name: str = "SAC-N"
     # model params
@@ -60,15 +48,13 @@ class TrainConfig:
     env_name: str = "MiniGrid-FourRooms-v1"
     batch_size: int = 256
     num_epochs: int = 3000
-    num_updates_on_epoch: int = 1000
-    # num_epochs: int = 100
-    # num_updates_on_epoch: int = 10
+    num_updates_on_epoch: int = 10
     normalize_reward: bool = False
     # evaluation params
-    eval_episodes: int = 10
-    eval_every: int = 5
+    eval_episodes: int = 40
+    eval_every: int = 500
     # general params
-    checkpoints_path: Optional[str] = None
+    checkpoints_path: Optional[str] = "./models/sac-n"
     deterministic_torch: bool = False
     train_seed: int = 10
     eval_seed: int = 42
@@ -77,8 +63,67 @@ class TrainConfig:
 
     def __post_init__(self):
         self.name = f"{self.name}-{self.env_name}-{str(uuid.uuid4())[:8]}"
-        if self.checkpoints_path is not None:
-            self.checkpoints_path = os.path.join(self.checkpoints_path, self.name)
+        # if self.checkpoints_path is not None:
+        #     self.checkpoints_path = os.path.join(self.checkpoints_path, self.name)
+
+############# Environment #############################################################
+
+def wrap_env(
+    env: gym.Env,
+    state_mean: Union[np.ndarray, float] = 0.0,
+    state_std: Union[np.ndarray, float] = 1.0,
+    reward_scale: float = 1.0,
+) -> gym.Env:
+    def normalize_state(state):
+        return (state - state_mean) / state_std
+
+    def scale_reward(reward):
+        return reward_scale * reward
+
+    env = gym.wrappers.TransformObservation(env, normalize_state)
+    if reward_scale != 1.0:
+        env = gym.wrappers.TransformReward(env, scale_reward)
+    return env
+
+
+def initialize_envs():
+    gym.register(Config.env_name, FourRoomsEnv)
+
+    with open('four_room/configs/fourrooms_train_config.pl', 'rb') as file: 
+        train_config = dill.load(file)
+    with open('./four_room/configs/fourrooms_test_100_config.pl', 'rb') as file:
+        test_100_config = dill.load(file)
+    with open('four_room/configs/fourrooms_test_0_config.pl', 'rb') as file: 
+        test_0_config = dill.load(file)
+
+    train_env = wrap_env(gym_wrapper(gym.make(Config.env_name, 
+        agent_pos=train_config['agent positions'],
+        goal_pos=train_config['goal positions'],
+        doors_pos=train_config['topologies'],
+        agent_dir=train_config['agent directions'],
+        render_mode="rgb_array")))
+        
+    eval_100_env = wrap_env(gym_wrapper(gym.make(Config.env_name, 
+        agent_pos=test_100_config['agent positions'],
+        goal_pos=test_100_config['goal positions'],
+        doors_pos=test_100_config['topologies'],
+        agent_dir=test_100_config['agent directions'],
+        render_mode="rgb_array")))
+
+    eval_0_env = wrap_env(gym_wrapper(gym.make(Config.env_name, 
+        agent_pos=test_0_config['agent positions'],
+        goal_pos=test_0_config['goal positions'],
+        doors_pos=test_0_config['topologies'],
+        agent_dir=test_0_config['agent directions'],
+        render_mode="rgb_array")))
+    
+    # return [train_env, eval_100_env, eval_0_env]
+    return {
+        "train": train_env,
+        "test_100": eval_100_env,
+        "test_0": eval_0_env
+    }
+
 
 
 # general utils
@@ -169,8 +214,6 @@ class ReplayBuffer:
             raise ValueError(
                 "Replay buffer is smaller than the dataset you are trying to load!"
             )
-        
-        # TODO: fix the dimensions!!!
         self._states[:n_transitions] = self._to_tensor(data["observations"])
         self._actions[:n_transitions] = self._to_tensor(data["actions"])
         self._rewards[:n_transitions] = self._to_tensor(data["rewards"][..., None])
@@ -223,12 +266,12 @@ class VectorizedLinear(nn.Module):
         # out: [ensemble_size, batch_size, out_size]
         return x @ self.weight + self.bias
 
+
 class Actor(nn.Module):
     def __init__(
         self, state_dim: int, num_actions: int, hidden_dim: int
     ):
         super().__init__()
-        print("state_dim, hidden_dim: [", state_dim, ", ", hidden_dim, "]")
         self.trunk = nn.Sequential(
             nn.Linear(state_dim, hidden_dim),
             nn.ReLU(),
@@ -261,9 +304,7 @@ class Actor(nn.Module):
         deterministic: bool = False,
         need_log_prob: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
-        # print("State1: ", state.shape)
         hidden = self.trunk(state)
-        # print("Hidden1: ", hidden.shape)
         #mu, log_sigma = self.mu(hidden), self.log_sigma(hidden)
 
         # clipping params from EDAC paper, not as in SAC paper (-20, 2)
@@ -273,9 +314,7 @@ class Actor(nn.Module):
         # This outputs the logits of the distribution over actions
         policy_probs = self.policy(hidden)
         policy_dist = torch.distributions.categorical.Categorical(probs=policy_probs)
-
         if deterministic:
-            # action = torch.argmax(policy_logits) # error, since policy_logits is not defined
             action = torch.argmax(policy_probs)
         else:
             action = policy_dist.sample()
@@ -291,15 +330,8 @@ class Actor(nn.Module):
     @torch.no_grad()
     def act(self, state: np.ndarray, device: str) -> np.ndarray:
         deterministic = not self.training
-        # print("act State1: ", state.shape)
-        state = torch.tensor(np.array(state), device=device, dtype=torch.float32)
-        # print("act State2: ", state.shape)
-
-        # state = torch.tensor(np.array(state), device=device, dtype=torch.float32)
+        state = torch.tensor(state, device=device, dtype=torch.float32)
         action = self(state, deterministic=deterministic)[0].cpu().numpy()
-        # action = self(state, deterministic=deterministic)[0].cuda().numpy()
-        # print("act Action: ", action.shape)
-
         return action
 
 
@@ -374,10 +406,14 @@ class SACN:
 
     def _alpha_loss(self, state: torch.Tensor) -> torch.Tensor:
         with torch.no_grad():
-            action, action_probs = self.actor(state)
+            action, action_probs = self.actor(state, need_log_prob=True)
+
+        # Have to deal with situation of 0.0 probabilities because we can't do log 0
+        z = action_probs == 0.0
+        z = z.float() * 1e-8
 
         # adjusted for discrete
-        loss = (action_probs * (-self.log_alpha * (torch.log(action_probs) + self.target_entropy))).sum(-1).mean()
+        loss = (action_probs * (-self.log_alpha * (torch.log(action_probs + z) + self.target_entropy))).sum(-1).mean()
 
         return loss
 
@@ -390,7 +426,11 @@ class SACN:
         q_value_std = q_value_dist.std(0).mean().item()
         batch_entropy = -torch.distributions.Categorical(probs = action_probs).entropy().mean().item()
 
-        loss = (action_probs * (self.alpha * torch.log(action_probs) - q_value_min)).sum(-1).mean()
+        # Have to deal with situation of 0.0 probabilities because we can't do log 0
+        z = action_probs == 0.0
+        z = z.float() * 1e-8
+
+        loss = (action_probs * (self.alpha * torch.log(action_probs + z) - q_value_min)).sum(-1).mean()
 
         return loss, batch_entropy, q_value_std
 
@@ -406,8 +446,13 @@ class SACN:
             next_action, next_action_probs = self.actor(
                 next_state, need_log_prob=True
             )
+            
+            # Have to deal with situation of 0.0 probabilities because we can't do log 0
+            z = next_action_probs == 0.0
+            z = z.float() * 1e-8
+            
             q_next = self.target_critic(next_state).min(0).values
-            q_next = (next_action_probs * (q_next - self.alpha * torch.log(next_action_probs))).sum(1)
+            q_next = (next_action_probs * (q_next - self.alpha * torch.log(next_action_probs + z))).sum(1)
             assert q_next.unsqueeze(-1).shape == done.shape == reward.shape
             q_target = reward + self.gamma * (1 - done) * q_next.unsqueeze(-1)
 
@@ -449,8 +494,10 @@ class SACN:
         with torch.no_grad():
             soft_update(self.target_critic, self.critic, tau=self.tau)
             # for logging, Q-ensemble std estimate with the random actions:
+            # random_actions = torch.randint(low=0, high=self.actor.num_actions-1, size=action.shape).squeeze()
             random_actions = torch.randint(low=0, high=self.actor.num_actions-1, size=action.shape, device=self.device).squeeze()
             random_actions = torch.nn.functional.one_hot(random_actions,num_classes=self.actor.num_actions)
+
             q_random_std = (random_actions * self.critic(state)).sum(-1).std(0).mean().item()
 
         update_info = {
@@ -491,26 +538,19 @@ class SACN:
 def eval_actor(
     env: gym.Env, actor: Actor, device: str, n_episodes: int, seed: int
 ) -> np.ndarray:
-    # env.seed(seed) # led to an error, since there is no .seed() method 
     actor.eval()
     episode_rewards = []
     for _ in range(n_episodes):
-        # state, done = env.reset(), False # did not work, as seed was missing
-        state, done = env.reset(seed=seed), False # env.reset() always return a state as a tuple
-        if isinstance(state, tuple):  # Check if the state is a tuple
-            state = state[0]
-        state = state.reshape(-1) # state needs to be flattened from [4, 9, 9] to [372, 1]
-        # print("Eval State: ", state.shape)
+        state, _ = env.reset(seed=seed)
+        state = state.flatten()
+        done = False
         episode_reward = 0.0
-        max_steps = 1000
-        steps_count = 0
-        while not done and steps_count < max_steps:
+        while not done:
             action = actor.act(state, device)
-            state, reward, done, _, _ = env.step(action)
-            state = state.reshape(-1) # state needs to be flattened from [4, 9, 9] to [372, 1]
+            state, reward, terminated, truncated, info = env.step(action)
+            state = state.flatten()
+            done = terminated or truncated
             episode_reward += reward
-            steps_count += 1
-        # print("Eval State2: ", state.shape)
         episode_rewards.append(episode_reward)
 
     actor.train()
@@ -542,36 +582,28 @@ def modify_reward(dataset, env_name, max_episode_steps=1000):
 
 
 @pyrallis.wrap()
-def train(config: TrainConfig):
+def train(config: Config, dataset_tuple: tuple):
     set_seed(config.train_seed, deterministic_torch=config.deterministic_torch)
     wandb_init(asdict(config))
+    
+    dataset_optimality = dataset_tuple[0]
+    dataset_path = dataset_tuple[1]
 
     # data, evaluation, env setup
-    #TODO: which configurations?!
-    eval_env = wrap_env(gym_wrapper(gym.make(config.env_name, 
-        agent_pos=test_config['agent positions'],
-        goal_pos=test_config['goal positions'],
-        doors_pos=test_config['topologies'],
-        agent_dir=test_config['agent directions'],
-        render_mode="rgb_array")))
-
-    # eval_env = wrap_env(gym_wrapper(gym.make(config.env_name)))
-
+    env_list = initialize_envs()
+    eval_env = env_list["test_100"]
+    
     num_actions = eval_env.action_space.n
     state_dim=1
     for dim in eval_env.observation_space.shape:
         state_dim *= dim
-    #state_dim = eval_env.observation_space.shape[0]
 
     #Discrete actions
     action_dim = 1
 
     # Load whatever dataset you wish to use here, in d4rl format
-    # I'm using a script that runs four-room with random actions and generates a dataset
     #d4rl_dataset = d4rl.qlearning_dataset(eval_env)
-    # d4rl_dataset = get_random_dataset()
-    # TODO: does that work?!
-    with open(dataset_path_optimal, 'rb') as file:
+    with open(dataset_path, 'rb') as file:
         d4rl_dataset = pickle.load(file)
 
     if config.normalize_reward:
@@ -611,53 +643,97 @@ def train(config: TrainConfig):
     if config.checkpoints_path is not None:
         print(f"Checkpoints path: {config.checkpoints_path}")
         os.makedirs(config.checkpoints_path, exist_ok=True)
-        with open(os.path.join(config.checkpoints_path, "config.yaml"), "w") as f:
+        # TODO: add optimal parameter here
+        # with open(os.path.join(config.checkpoints_path, f"config_{config.optimality}.yaml"), "w") as f:
+        with open(os.path.join(config.checkpoints_path, f"config_{dataset_optimality}.yaml"), "w") as f:
             pyrallis.dump(config, f)
 
     total_updates = 0.0
     for epoch in trange(config.num_epochs, desc="Training"):
-        try:
-            # training
-            for _ in trange(config.num_updates_on_epoch, desc="Epoch", leave=False):
-                batch = buffer.sample(config.batch_size)
-                update_info = trainer.update(batch)
+        # training
+        for _ in trange(config.num_updates_on_epoch, desc="Epoch", leave=False):
+            batch = buffer.sample(config.batch_size)
+            update_info = trainer.update(batch)
 
-                if total_updates % config.log_every == 0:
-                    wandb.log({"epoch": epoch, **update_info})
+            if total_updates % config.log_every == 0:
+                wandb.log({"epoch": epoch, **update_info})
 
-                total_updates += 1
+            total_updates += 1
 
-            # evaluation
-            if epoch % config.eval_every == 0 or epoch == config.num_epochs - 1:
-                eval_returns = eval_actor( # TODO: fix problems (does not run)
-                    env=eval_env,
-                    actor=actor,
-                    n_episodes=config.eval_episodes,
-                    seed=config.eval_seed,
-                    device=config.device,
+        # evaluation
+        if epoch % config.eval_every == 0 or epoch == config.num_epochs - 1:
+            eval_returns = eval_actor(
+                env=eval_env,
+                actor=actor,
+                n_episodes=config.eval_episodes,
+                seed=config.eval_seed,
+                device=config.device,
+            )
+            eval_log = {
+                "eval/reward_mean": np.mean(eval_returns),
+                "eval/reward_std": np.std(eval_returns),
+                "epoch": epoch,
+            }
+            if hasattr(eval_env, "get_normalized_score"):
+                normalized_score = eval_env.get_normalized_score(eval_returns) * 100.0
+                eval_log["eval/normalized_score_mean"] = np.mean(normalized_score)
+                eval_log["eval/normalized_score_std"] = np.std(normalized_score)
+
+            wandb.log(eval_log)
+
+            if config.checkpoints_path is not None:
+                torch.save(
+                    trainer.state_dict(),
+                    os.path.join(config.checkpoints_path, f"{dataset_optimality}_{epoch}epochs.pt"),
                 )
-                eval_log = {
-                    "eval/reward_mean": np.mean(eval_returns),
-                    "eval/reward_std": np.std(eval_returns),
-                    "epoch": epoch,
-                }
-                if hasattr(eval_env, "get_normalized_score"):
-                    normalized_score = eval_env.get_normalized_score(eval_returns) * 100.0
-                    eval_log["eval/normalized_score_mean"] = np.mean(normalized_score)
-                    eval_log["eval/normalized_score_std"] = np.std(normalized_score)
-
-                wandb.log(eval_log)
-
-                if config.checkpoints_path is not None:
-                    torch.save(
-                        trainer.state_dict(),
-                        os.path.join(config.checkpoints_path, f"{epoch}.pt"),
-                    )
-        except Exception as e:
-            print(f"Error during training at epoch {epoch}: {str(e)}")
 
     wandb.finish()
+    
+    
+@pyrallis.wrap()
+def eval(config: Config, model_paths: dict):
+    set_seed(config.eval_seed, deterministic_torch=config.deterministic_torch)
+    
+    model_path = model_paths["sac"]
+    env_list = initialize_envs()
+    results = []  # List to store results for each environment and evaluation
+    
+    for env_name, eval_env in env_list.items():
+        num_actions = eval_env.action_space.n
+        state_dim = 1
+        for dim in eval_env.observation_space.shape:
+            state_dim *= dim
+
+        actor = Actor(state_dim, num_actions, config.hidden_dim)
+        actor.to(config.device)
+        if os.path.isfile(model_path):
+            checkpoint = torch.load(model_path, map_location=config.device)
+            actor.load_state_dict(checkpoint["actor"])
+        else:
+            print(f"Model not found: {model_path}")
+            continue  # Skip this environment if the model isn't found
+
+        eval_returns = eval_actor(
+            env=eval_env,
+            actor=actor,
+            n_episodes=config.eval_episodes,
+            seed=config.eval_seed,
+            device=config.device,
+        )
+        
+        # Collect results
+        results.append({
+            "Environment": env_name,
+            "Reward_mean": np.mean(eval_returns),
+            "Reward_std": np.std(eval_returns),
+        })
+
+    # Convert results to DataFrame and return
+    print(results)
+    return pd.DataFrame(results)
 
 
-if __name__ == "__main__":
-    train()
+
+# if __name__ == "__main__":
+    # train()
+    # eval()

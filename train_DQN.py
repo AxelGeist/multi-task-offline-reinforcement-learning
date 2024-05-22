@@ -144,7 +144,7 @@ policy_kwargs = dict(features_extractor_class = CNN, features_extractor_kwargs =
 callback = SaveAtEveryPercentileCallback(
     eval_env=eval_env,
     log_path='./logs/',
-    save_path='./models/',
+    save_path='./models/dqn/',
     verbose=1
 )
 # callback = EvalCallback(eval_env, n_eval_episodes=num_train_configs, eval_freq=max(10000 // n_envs, 1), verbose=0)

@@ -18,6 +18,7 @@ models/
 
 # Ignore logs and outputs
 logs/
+d3rlpy_logs/
 output/
 wandb/
 

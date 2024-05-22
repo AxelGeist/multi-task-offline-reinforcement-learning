@@ -91,7 +91,7 @@ for episode in range(num_episodes):
     print(f'Episode {episode + 1}: Total Reward = {total_reward}')
 
 # visualize the agents actions in the maze
-imageio.mimsave('rendered_episode.gif', [np.array(img) for i, img in enumerate(images) if i%1 == 0], duration=200)
+imageio.mimsave('rendered_optimal_policy.gif', [np.array(img) for i, img in enumerate(images) if i%1 == 0], duration=200)
 
 
 # Transform dataset arrays to np arrays, like in the DR4L format
