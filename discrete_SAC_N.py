@@ -713,7 +713,7 @@ def eval(config: Config, model_paths: dict):
             print(f"Model not found: {model_path}")
             continue  # Skip this environment if the model isn't found
 
-        eval_returns = eval_actor(
+        rewards = eval_actor(
             env=eval_env,
             actor=actor,
             n_episodes=config.eval_episodes,
@@ -723,9 +723,10 @@ def eval(config: Config, model_paths: dict):
         
         # Collect results
         results.append({
+            "Algorithm": "SAC", 
             "Environment": env_name,
-            "Reward_mean": np.mean(eval_returns),
-            "Reward_std": np.std(eval_returns),
+            "Reward_mean": np.mean(rewards),
+            "Reward_std": np.std(rewards),
         })
 
     # Convert results to DataFrame and return

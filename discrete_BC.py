@@ -186,14 +186,14 @@ def evaluate_env(env, bc, config, env_name):
         
         
     # Calculate average reward
-    avg_reward = np.mean(rewards)
-    print(f"Average Reward over {config.eval_episodes} episodes for {env_name}: {avg_reward}")
+    reward_mean = np.mean(rewards)
+    print(f"Average Reward over {config.eval_episodes} episodes for {env_name}: {reward_mean}")
 
     # visualize the agents actions in the maze
     # gif_path = f'rendered_BC_with_{optimality}_policy_{env_name}.gif'
     # imageio.mimsave(gif_path, [np.array(img) for i, img in enumerate(images) if i % 1 == 0], duration=200)
     # print(f"Saved GIF for {env_name} and {optimality} at {gif_path}") 
-    return avg_reward
+    return reward
 
 @pyrallis.wrap()
 def eval(config: Config, model_paths: dict):
@@ -206,16 +206,22 @@ def eval(config: Config, model_paths: dict):
     
     for env_name, eval_env in env_list.items():
         rewards = evaluate_env(eval_env, bc, config, env_name)
-        all_rewards.append({f"Environment": {env_name}, "Reward": rewards})
-
-    # Plotting the rewards
-    # plot_rewards(all_rewards)
-    return all_rewards
+        all_rewards.append({
+            "Algorithm": "BC", 
+            f"Environment": env_name, 
+            "Reward_mean": np.mean(rewards),
+            "Reward_std": np.std(rewards)
+        })
     
-    
-def plot_rewards(all_rewards):
-    # Convert collected data into a DataFrame
     df_rewards = pd.DataFrame(all_rewards)
+    
+    # Plotting the rewards
+    # plot_rewards(df_rewards)
+    
+    return df_rewards
+    
+    
+def plot_rewards(df_rewards):
 
     # Plotting the rewards using seaborn
     plt.figure(figsize=(10, 6))
