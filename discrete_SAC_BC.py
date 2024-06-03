@@ -14,10 +14,10 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 #import d4rl
 import gymnasium as gym
 import numpy as np
-import matplotlib.pyplot as plt
 import pyrallis
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import wandb
 import dill
 from torch.distributions import Normal
@@ -37,6 +37,7 @@ class Config:
     # model params
     hidden_dim: int = 256
     num_critics: int = 2 # defines the N in SAC-N
+    beta: float = 0.3 # determines trade-off of the BC term
     gamma: float = 0.99
     tau: float = 5e-3
     actor_learning_rate: float = 3e-4
@@ -45,16 +46,16 @@ class Config:
     max_action: float = 1.0
     # training params
     buffer_size: int = 1_000_000
-    env_name: str = "MiniGrid-FourRooms-v1"
+    env_name: str = "MiniGrfid-FourRooms-v1"
     batch_size: int = 256
-    num_epochs: int = 3000
+    num_epochs: int = 40
     num_updates_on_epoch: int = 10
     normalize_reward: bool = False
     # evaluation params
     eval_episodes: int = 40 # there are 40 tasks in each test_config
-    eval_every: int = 1000
+    eval_every: int = 40
     # general params
-    checkpoints_path: Optional[str] = "./models/sac-n"
+    checkpoints_path: Optional[str] = "./models/sac_bc"
     deterministic_torch: bool = False
     train_seed: int = 10
     eval_seed: int = 42
@@ -360,6 +361,7 @@ class SACN:
         actor_optimizer: torch.optim.Optimizer,
         critic: VectorizedCritic,
         critic_optimizer: torch.optim.Optimizer,
+        beta: float = 1,
         gamma: float = 0.99,
         tau: float = 0.005,
         alpha_learning_rate: float = 1e-4,
@@ -376,6 +378,7 @@ class SACN:
         self.critic_optimizer = critic_optimizer
 
         self.tau = tau
+        self.beta = beta
         self.gamma = gamma
 
         # adaptive alpha setup
@@ -399,7 +402,7 @@ class SACN:
 
         return loss
 
-    def _actor_loss(self, state: torch.Tensor) -> Tuple[torch.Tensor, float, float]:
+    def _actor_loss(self, state: torch.Tensor, replay_buffer_action: torch.Tensor) -> Tuple[torch.Tensor, float, float]:
         action, action_probs = self.actor(state, need_log_prob=True)
         q_value_dist = self.critic(state)
         assert q_value_dist.shape[0] == self.critic.num_critics
@@ -411,8 +414,14 @@ class SACN:
         # Have to deal with situation of 0.0 probabilities because we can't do log 0
         z = action_probs == 0.0
         z = z.float() * 1e-8
+        
+        # BC term for the SAC+BC implementation
+        replay_buffer_action = replay_buffer_action.flatten()
+        action_dist = torch.distributions.Categorical(probs=action_probs)
+        bc_loss = -action_dist.log_prob(replay_buffer_action).mean()
+        # bc_loss = F.mse_loss(replay_buffer_action, action)
 
-        loss = (action_probs * (self.alpha * torch.log(action_probs + z) - q_value_min)).sum(-1).mean()
+        loss = (action_probs * (self.alpha * torch.log(action_probs + z) - q_value_min)).sum(-1).mean() + self.beta * bc_loss
 
         return loss, batch_entropy, q_value_std
 
@@ -461,7 +470,7 @@ class SACN:
         self.alpha = self.log_alpha.exp().detach()
 
         # Actor update
-        actor_loss, actor_batch_entropy, q_policy_std = self._actor_loss(state)
+        actor_loss, actor_batch_entropy, q_policy_std = self._actor_loss(state, action)
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
@@ -616,6 +625,7 @@ def train(config: Config, dataset_tuple: tuple):
         actor_optimizer=actor_optimizer,
         critic=critic,
         critic_optimizer=critic_optimizer,
+        beta=config.beta,
         gamma=config.gamma,
         tau=config.tau,
         alpha_learning_rate=config.alpha_learning_rate,
@@ -631,6 +641,7 @@ def train(config: Config, dataset_tuple: tuple):
 
     total_updates = 0.0
     n_steps = 0
+    
     
     for epoch in trange(config.num_epochs, desc="Training"):
         # training
@@ -674,6 +685,7 @@ def train(config: Config, dataset_tuple: tuple):
 
     wandb.finish()
     
+    
 @pyrallis.wrap()
 def eval(config: Config, model_paths: dict):
     set_seed(config.eval_seed, deterministic_torch=config.deterministic_torch)
@@ -716,94 +728,7 @@ def eval(config: Config, model_paths: dict):
     # Convert results to DataFrame and return
     df = pd.DataFrame(results)
     print(df)
-    return df
-
-
-
-@pyrallis.wrap()
-def eval_all_models(config: Config, model_dir: str):
-    
-    log_file_path = f'{model_dir}/results.csv'
-    
-    # Prepare environments
-    env_list = initialize_envs()
-    
-    # Check if the log file exists, if not, open it to write with headers
-    file_exists = False
-    
-    for x in range(int(config.num_epochs * config.num_updates_on_epoch / config.eval_every)):
-        
-        
-        # load model
-        current_steps = (x+1) * config.num_epochs
-        model_path = f'{model_dir}/optimal_{current_steps}.pt'
-
-
-        results = []  # List to store results for each environment and evaluation
-        
-        for env_name, eval_env in env_list.items():
-            num_actions = eval_env.action_space.n
-            state_dim = 1
-            for dim in eval_env.observation_space.shape:
-                state_dim *= dim
-
-            actor = Actor(state_dim, num_actions, config.hidden_dim)
-            actor.to(config.device)
-            if os.path.isfile(model_path):
-                checkpoint = torch.load(model_path, map_location=config.device)
-                actor.load_state_dict(checkpoint["actor"])
-            else:
-                print(f"Model not found: {model_path}")
-                break  # Skip this environment if the model isn't found
-
-            rewards = eval_actor(
-                env=eval_env,
-                actor=actor,
-                n_episodes=config.eval_episodes,
-                seed=config.eval_seed,
-                device=config.device,
-            )
-            
-            # Collect results
-            results.append({
-                "Algorithm": "SAC", 
-                "Environment": env_name,
-                "Reward_mean": np.mean(rewards),
-                "Reward_std": np.std(rewards),
-                "Steps": current_steps,
-            })
-    
-    
-        df_rewards = pd.DataFrame(results)
-        print(df_rewards)
-        
-        # log results
-        df_rewards.to_csv(log_file_path, mode='a', header=not file_exists, index=False)
-        # Ensure header is not written again
-        if not file_exists:
-            file_exists = True
-    # plot
-    plot_evaluation_results(log_file_path)
-
-def plot_evaluation_results(csv_file_path):
-    # Read the accumulated results
-    df = pd.read_csv(csv_file_path)
-    # df.columns = ['Algorithm', 'Environment', 'Reward_mean', 'Reward_std', 'Steps']
-
-    # Plotting
-    plt.figure(figsize=(10, 6))
-    environments = df['Environment'].unique()
-    for env_name in environments:
-        env_data = df[df['Environment'] == env_name]
-        plt.errorbar(env_data['Steps'], env_data['Reward_mean'], label=env_name, fmt='-o')
-        # plt.errorbar(env_data['Steps'], env_data['Reward_mean'], yerr=env_data['Reward_std'], label=env_name, fmt='-o')
-
-    plt.xlabel('Training Steps')
-    plt.ylabel('Mean Reward')
-    plt.title('Performance of BC across Different Environments')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    return pd.DataFrame(df)
 
 
 
@@ -814,8 +739,6 @@ if __name__ == "__main__":
         }
     
     
-    # eval_all_models(model_dir="models\sac-n\SAC-N-MiniGrid-FourRooms-v1-eebe6680")
     # eval(model_paths=model_paths)
-    # train(("optimal", "./datasets/dataset_gen_optimal_policy_40x.pkl"))
-    train(("suboptimal", "./datasets/dataset_gen_suboptimal_policy_50pct_80x.pkl"))
+    train(("optimal", "./datasets/dataset_gen_optimal_policy_40x.pkl"))
 

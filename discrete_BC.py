@@ -14,7 +14,6 @@ import torch
 import torch.nn as nn
 import wandb
 import dill
-import pickle
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -40,11 +39,11 @@ class Config:
     name: str = "BC"
     # training params
     env_name: str = "MiniGrid-FourRooms-v1"
-    n_steps: int = 50000
-    n_steps_per_epoch: int = 1000
+    n_steps: int = 400
+    n_steps_per_epoch: int = 40
     # evaluation params
     eval_episodes: int = 40
-    eval_every: int = 5
+    # eval_every: int = 40
     # general params
     checkpoints_path: Optional[str] = None
     deterministic_torch: bool = False
@@ -81,12 +80,12 @@ def wrap_env(
 def initialize_envs():
     gym.register(Config.env_name, FourRoomsEnv)
 
-    with open('four_room/configs/fourrooms_train_config.pl', 'rb') as file: 
-        train_config = dill.load(file)
-    with open('./four_room/configs/fourrooms_test_100_config.pl', 'rb') as file:
-        test_100_config = dill.load(file)
-    with open('four_room/configs/fourrooms_test_0_config.pl', 'rb') as file: 
-        test_0_config = dill.load(file)
+    with open('four_room/configs/fourrooms_train_config.pl', 'rb') as file1: 
+        train_config = dill.load(file1)
+    with open('./four_room/configs/fourrooms_test_100_config.pl', 'rb') as file2:
+        test_100_config = dill.load(file2)
+    with open('four_room/configs/fourrooms_test_0_config.pl', 'rb') as file3: 
+        test_0_config = dill.load(file3)
 
     train_env = wrap_env(gym_wrapper(gym.make(Config.env_name, 
         agent_pos=train_config['agent positions'],
@@ -109,7 +108,6 @@ def initialize_envs():
         agent_dir=test_0_config['agent directions'],
         render_mode="rgb_array")))
     
-    # return [train_env, eval_100_env, eval_0_env]
     return {
         "train": train_env,
         "test_100": eval_100_env,
@@ -130,7 +128,7 @@ def train(config: Config, dataset_tuple: tuple):
     dataset_path = dataset_tuple[1]
     
     with open(dataset_path, 'rb') as file:
-        d4rl_dataset = pickle.load(file)
+        d4rl_dataset = dill.load(file)
 
     mdp_dataset = MDPDataset(
         observations=d4rl_dataset['observations'],
@@ -144,15 +142,11 @@ def train(config: Config, dataset_tuple: tuple):
     d3rlpy.seed(args.seed)
     bc = d3rlpy.algos.DiscreteBCConfig().create(device=args.gpu)
 
+
     bc.fit(
         mdp_dataset,
         n_steps=config.n_steps,
-        n_steps_per_epoch=config.n_steps_per_epoch,
-        # evaluators={
-        #     # 'td_error': td_error_evaluator,
-        #     'environment_test_100': env_100_evaluator,
-        #     'environment_test_0': env_0_evaluator
-        # }
+        n_steps_per_epoch=config.n_steps_per_epoch, # for monitoring purposes,
     )
 
     bc.save(f'./models/bc/BC_model_{dataset_optimality}.d3')
@@ -162,42 +156,43 @@ def train(config: Config, dataset_tuple: tuple):
 
 def evaluate_env(env, bc, config, env_name):
     rewards = []
-    images = []
+    # images = []
     
     for episode in range(config.eval_episodes):
-        obs, _ = env.reset(seed=config.eval_seed)
-        obs = np.array(obs)
-        img = env.render()
+        # obs, _ = env.reset(seed=config.eval_seed)
+        obs, _ = env.reset()
+        # img = env.render()
         done = False
-        total_reward = 0
+        steps = 0
 
         while not done:
-            images.append(img)
-            action = bc.predict(obs.reshape(1, -1))[0]
+            steps += 1
+            # images.append(img)
+            # action = bc.predict(obs.reshape(1, -1))[0]
+            action = bc.predict(obs.flatten()[None, :])
             next_obs, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated 
 
             obs = next_obs
-            total_reward += reward
-            img = env.render()
+            # img = env.render()
         
-        rewards.append(total_reward)
+        rewards.append(reward)
         # print(f'Episode {episode + 1} in {env_name}: Total Reward = {total_reward}')
         
         
     # Calculate average reward
     reward_mean = np.mean(rewards)
-    print(f"Average Reward over {config.eval_episodes} episodes for {env_name}: {reward_mean}")
 
     # visualize the agents actions in the maze
     # gif_path = f'rendered_BC_with_{optimality}_policy_{env_name}.gif'
     # imageio.mimsave(gif_path, [np.array(img) for i, img in enumerate(images) if i % 1 == 0], duration=200)
     # print(f"Saved GIF for {env_name} and {optimality} at {gif_path}") 
-    return reward
+    return rewards
 
 @pyrallis.wrap()
 def eval(config: Config, model_paths: dict):
-    model_path = model_paths["bc"]
+    # model_path = model_paths["bc"]
+    model_path = "d3rlpy_logs\DiscreteBC_20240530010539\model_400.d3"
     
     bc = d3rlpy.load_learnable(model_path)
     
@@ -219,6 +214,69 @@ def eval(config: Config, model_paths: dict):
     # plot_rewards(df_rewards)
     
     return df_rewards
+
+@pyrallis.wrap()
+def eval_all_models(config: Config, model_dir: str):
+    
+    log_file_path = f'{model_dir}/results.csv'
+    
+    # Prepare environments
+    env_list = initialize_envs()
+    
+    # Check if the log file exists, if not, open it to write with headers
+    file_exists = False
+    
+    for x in range(int(config.n_steps / config.n_steps_per_epoch)):
+        
+        # load model
+        current_steps = x * config.n_steps_per_epoch + config.n_steps_per_epoch
+        model_path = f'{model_dir}/model_{current_steps}.d3'
+        bc = d3rlpy.load_learnable(model_path)
+        
+        # evaluate
+        all_rewards = []
+    
+        for env_name, eval_env in env_list.items():
+            rewards = evaluate_env(eval_env, bc, config, env_name)
+            all_rewards.append({
+                "Algorithm": "BC", 
+                f"Environment": env_name, 
+                "Reward_mean": np.mean(rewards),
+                "Reward_std": np.std(rewards),
+                "Steps": current_steps,
+            })
+    
+        df_rewards = pd.DataFrame(all_rewards)
+        print(df_rewards)
+        
+        # log results
+        df_rewards.to_csv(log_file_path, mode='a', header=not file_exists, index=False)
+        # Ensure header is not written again
+        if not file_exists:
+            file_exists = True
+    # plot
+    plot_evaluation_results(log_file_path)
+
+def plot_evaluation_results(csv_file_path):
+    # Read the accumulated results
+    df = pd.read_csv(csv_file_path)
+    # df.columns = ['Algorithm', 'Environment', 'Reward_mean', 'Reward_std', 'Steps']
+
+    # Plotting
+    plt.figure(figsize=(10, 6))
+    environments = df['Environment'].unique()
+    for env_name in environments:
+        env_data = df[df['Environment'] == env_name]
+        plt.errorbar(env_data['Steps'], env_data['Reward_mean'], label=env_name, fmt='-o')
+        # plt.errorbar(env_data['Steps'], env_data['Reward_mean'], yerr=env_data['Reward_std'], label=env_name, fmt='-o')
+
+    plt.xlabel('Training Steps')
+    plt.ylabel('Mean Reward')
+    plt.title('Performance of BC across Different Environments')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+    
     
     
 def plot_rewards(df_rewards):
@@ -238,11 +296,9 @@ def plot_rewards(df_rewards):
 
 
 
-
-
-
-
-
-# if __name__ == "__main__":
-#     train()
-#     eval()
+if __name__ == "__main__":
+    # train(("optimal", "./datasets/dataset_gen_optimal_policy_40x.pkl"))
+    train(("suboptimal", "./datasets/dataset_gen_suboptimal_policy_50pct_80x.pkl"))
+    # eval_all_models(model_dir="d3rlpy_logs\DiscreteBC_20240531030038")
+    # plot_evaluation_results("d3rlpy_logs\DiscreteBC_20240530182221/results.csv")
+    # plot_evaluation_results("d3rlpy_logs\DiscreteBC_20240530172702/results.csv")

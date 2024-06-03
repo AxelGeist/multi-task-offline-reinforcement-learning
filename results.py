@@ -1,4 +1,5 @@
 import  discrete_SAC_N as sac_n
+import  discrete_SAC_N as sac_bc
 import discrete_BC as bc
 import dataset_gen_optimal_policy
 import dataset_gen_suboptimal_policy
@@ -54,6 +55,7 @@ from d3rlpy.dataset import MDPDataset
 
 CONFIG = {
     "training_datasets": {
+        # "optimal": "./datasets/expert_dataset_iql.pkl",
         "optimal": "./datasets/dataset_gen_optimal_policy_40x.pkl",
         "suboptimal": "./datasets/dataset_gen_suboptimal_policy_50pct_80x.pkl"
     },
@@ -80,22 +82,24 @@ def generate_datasets():
 
 def train_rl_models(dataset_name):
     dataset_path = CONFIG["training_datasets"][dataset_name]
-    sac_n.train((dataset_name, dataset_path))
-    bc.train((dataset_name, dataset_path)) # TODO: merge eval & train bc first
+    # sac_n.train((dataset_name, dataset_path))
+    # sac_bc.train((dataset_name, dataset_path))
+    bc.train((dataset_name, dataset_path))
 
 ############# Evaluation #############################################################
 
 def evaluate_rl_models(model_type):
     model_paths = CONFIG["evaluation_models"][model_type]
-    sac_eval_data = sac_n.eval(model_paths=model_paths) # Works!
+    # sac_eval_data = sac_n.eval(model_paths=model_paths) # Works!
+    sac_bc_eval_data = sac_bc.eval(model_paths=model_paths) # Works!
     bc_eval_data = bc.eval(model_paths=model_paths)
-    return sac_eval_data, bc_eval_data
+    return sac_bc_eval_data, bc_eval_data
 
 ############# Plotting ################################################################
 
 def plot_results(sac_eval_data: pd.DataFrame, bc_eval_data: pd.DataFrame):
     results = pd.concat([sac_eval_data, bc_eval_data])
-    
+    print(results)
     # Plotting
     plt.figure(figsize=(10, 6))
     barplot = sns.barplot(x="Algorithm", y="Reward_mean", hue="Environment", data=results, errorbar="sd", palette="muted")
@@ -106,7 +110,7 @@ def plot_results(sac_eval_data: pd.DataFrame, bc_eval_data: pd.DataFrame):
     handles.append(Line2D([0], [0], color='grey', lw=2, linestyle='--'))
     labels.append('Optimal Dataset Average')
     plt.legend(handles, labels, title='')    
-        
+    
     plt.title("Four_room - 40x Optimal Dataset")
     plt.ylabel("Reward_mean")
     plt.xlabel("")
@@ -119,12 +123,12 @@ def main():
     # generate_datasets()
     
     # 2. Choose dataset for training
-    # training_dataset_quality = "suboptimal"  # "optimal" or "suboptimal"
-    # train_rl_models(training_dataset_quality)
+    training_dataset_quality = "optimal"  # "optimal" or "suboptimal"
+    train_rl_models(training_dataset_quality)
 
     # 3. Choose models for evaluation & plotting
     evaluation_model_quality = "optimal"  # "optimal" or "suboptimal"
-    sac_eval_data, bc_eval_data = evaluate_rl_models(evaluation_model_quality)
+    # sac_eval_data, bc_eval_data = evaluate_rl_models(evaluation_model_quality)
     # TODO: store those results somehwere?!
 
     # sac_eval_data = pd.DataFrame({
@@ -144,7 +148,7 @@ def main():
     
     # 4. Plot results
     # TODO: fetch the data from the results folder instead
-    plot_results(sac_eval_data, bc_eval_data)
+    # plot_results(sac_eval_data, bc_eval_data)
     
 
 if __name__ == "__main__":
