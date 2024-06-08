@@ -6,6 +6,7 @@ import os
 import pandas as pd
 import random
 import uuid
+import matplotlib.pyplot as plt
 from dataclasses import dataclass, field
 from copy import deepcopy
 from dataclasses import asdict, dataclass
@@ -37,7 +38,7 @@ class Config:
     # model params
     hidden_dim: int = 256
     num_critics: int = 2 # defines the N in SAC-N
-    beta: float = 0.3 # determines trade-off of the BC term
+    beta: float = 1 # determines trade-off of the BC term
     gamma: float = 0.99
     tau: float = 5e-3
     actor_learning_rate: float = 3e-4
@@ -48,24 +49,25 @@ class Config:
     buffer_size: int = 1_000_000
     env_name: str = "MiniGrfid-FourRooms-v1"
     batch_size: int = 256
-    num_epochs: int = 40
+    num_epochs: int = 20
     num_updates_on_epoch: int = 10
     normalize_reward: bool = False
     # evaluation params
     eval_episodes: int = 40 # there are 40 tasks in each test_config
-    eval_every: int = 40
+    eval_every: int = 50
     # general params
     checkpoints_path: Optional[str] = "./models/sac_bc"
     deterministic_torch: bool = False
-    train_seed: int = 10
-    eval_seed: int = 42
+    train_seed: int = 0
+    eval_seed: int = 1
     log_every: int = 100
     device: str = "cuda"
 
     def __post_init__(self):
-        self.name = f"{self.name}-{self.env_name}-{str(uuid.uuid4())[:8]}"
-        if self.checkpoints_path is not None:
-            self.checkpoints_path = os.path.join(self.checkpoints_path, self.name)
+        # self.name = f"{self.name}-{self.env_name}-{str(uuid.uuid4())[:8]}"
+        self.name = f"{str(uuid.uuid4())[:8]}"
+        # if self.checkpoints_path is not None:
+            # self.checkpoints_path = os.path.join(self.checkpoints_path, self.name)
 
 ############# Environment #############################################################
 
@@ -575,7 +577,7 @@ def modify_reward(dataset, env_name, max_episode_steps=1000):
 @pyrallis.wrap()
 def train(config: Config, dataset_tuple: tuple):
     set_seed(config.train_seed, deterministic_torch=config.deterministic_torch)
-    wandb_init(asdict(config))
+    # wandb_init(asdict(config))
     
     dataset_optimality = dataset_tuple[0]
     dataset_path = dataset_tuple[1]
@@ -633,8 +635,11 @@ def train(config: Config, dataset_tuple: tuple):
     )
     # saving config to the checkpoint
     if config.checkpoints_path is not None:
+        
+        config.checkpoints_path = f'{config.checkpoints_path}/{dataset_optimality}_{config.name}'
         print(f"Checkpoints path: {config.checkpoints_path}")
-        os.makedirs(config.checkpoints_path, exist_ok=True)
+        os.makedirs(config.checkpoints_path)
+        # os.makedirs(config.checkpoints_path, exist_ok=True)
         # with open(os.path.join(config.checkpoints_path, f"config_{config.optimality}.yaml"), "w") as f:
         with open(os.path.join(config.checkpoints_path, f"config_{dataset_optimality}.yaml"), "w") as f:
             pyrallis.dump(config, f)
@@ -649,8 +654,8 @@ def train(config: Config, dataset_tuple: tuple):
             batch = buffer.sample(config.batch_size)
             update_info = trainer.update(batch)
 
-            if total_updates % config.log_every == 0:
-                wandb.log({"epoch": epoch, **update_info})
+            # if total_updates % config.log_every == 0:
+            #     wandb.log({"epoch": epoch, **update_info})
 
             total_updates += 1
             n_steps += 1 # TODO: check if that really represents 1 step
@@ -658,43 +663,48 @@ def train(config: Config, dataset_tuple: tuple):
         # evaluation
         # if epoch % config.eval_every == 0 or epoch == config.num_epochs - 1:
         if n_steps % config.eval_every == 0 or n_steps == config.num_epochs * config.num_updates_on_epoch:
-            eval_returns = eval_actor(
-                env=train_env,
-                actor=actor,
-                n_episodes=config.eval_episodes,
-                seed=config.eval_seed,
-                device=config.device,
-            )
-            eval_log = {
-                "eval/reward_mean": np.mean(eval_returns),
-                "eval/reward_std": np.std(eval_returns),
-                "epoch": epoch,
-            }
-            if hasattr(train_env, "get_normalized_score"):
-                normalized_score = train_env.get_normalized_score(eval_returns) * 100.0
-                eval_log["eval/normalized_score_mean"] = np.mean(normalized_score)
-                eval_log["eval/normalized_score_std"] = np.std(normalized_score)
+            # eval_returns = eval_actor(
+            #     env=train_env,
+            #     actor=actor,
+            #     n_episodes=config.eval_episodes,
+            #     seed=config.eval_seed,
+            #     device=config.device,
+            # )
+            # eval_log = {
+            #     "eval/reward_mean": np.mean(eval_returns),
+            #     "eval/reward_std": np.std(eval_returns),
+            #     "epoch": epoch,
+            # }
+            # if hasattr(train_env, "get_normalized_score"):
+            #     normalized_score = train_env.get_normalized_score(eval_returns) * 100.0
+            #     eval_log["eval/normalized_score_mean"] = np.mean(normalized_score)
+            #     eval_log["eval/normalized_score_std"] = np.std(normalized_score)
 
-            wandb.log(eval_log)
+            # wandb.log(eval_log)
 
             if config.checkpoints_path is not None:
                 torch.save(
                     trainer.state_dict(),
-                    os.path.join(config.checkpoints_path, f"{dataset_optimality}_{n_steps}.pt"),
+                    os.path.join(config.checkpoints_path, f"model_{n_steps}.pt"),
                 )
 
-    wandb.finish()
+    # wandb.finish()
     
     
-@pyrallis.wrap()
-def eval(config: Config, model_paths: dict):
+# @pyrallis.wrap()
+# def eval(config: Config, model_paths: dict, environments: ['train', "test_0", "test_100"]):
+def eval(config: Config, model_paths: dict, environments: List[str] = ["train", "test_100", "test_0"]):
     set_seed(config.eval_seed, deterministic_torch=config.deterministic_torch)
     
     model_path = model_paths["sac"]
     env_list = initialize_envs()
-    results = []  # List to store results for each environment and evaluation
+    all_rewards = []  # List to store results for each environment and evaluation
     
     for env_name, eval_env in env_list.items():
+        # only evaluate the listed environments and skip missing environments
+        if env_name not in environments:
+            break
+        
         num_actions = eval_env.action_space.n
         state_dim = 1
         for dim in eval_env.observation_space.shape:
@@ -718,7 +728,7 @@ def eval(config: Config, model_paths: dict):
         )
         
         # Collect results
-        results.append({
+        all_rewards.append({
             "Algorithm": "SAC", 
             "Environment": env_name,
             "Reward_mean": np.mean(rewards),
@@ -726,19 +736,118 @@ def eval(config: Config, model_paths: dict):
         })
 
     # Convert results to DataFrame and return
-    df = pd.DataFrame(results)
+    df = pd.DataFrame(all_rewards)
     print(df)
     return pd.DataFrame(df)
 
 
+@pyrallis.wrap()
+def eval_all_models(config: Config, model_dir: str):
+    set_seed(config.eval_seed, deterministic_torch=config.deterministic_torch)
+    
+    if 'suboptimal' in model_dir:
+        dataset_quality = 'suboptimal'
+    elif 'optimal' in model_dir:
+        dataset_quality = 'optimal'
+    elif 'mixed' in model_dir:
+        dataset_quality = 'mixed'
+    
+    env_list = initialize_envs()
+    
+    log_file_path = f'{model_dir}/results.csv'
+    
+    # Prepare environments
+    env_list = initialize_envs()
+    
+    # Check if the log file exists, if not, open it to write with headers
+    file_exists = False
+    
+    for x in range(int(config.num_epochs * config.num_updates_on_epoch / config.eval_every)):
+        
+        # load model
+        current_steps = x * config.eval_every + config.eval_every
+        model_path = f'{model_dir}/model_{current_steps}.pt'
+        
+        # evaluate
+        all_rewards = []
+    
+        for env_name, eval_env in env_list.items():
+            num_actions = eval_env.action_space.n
+            state_dim = 1
+            for dim in eval_env.observation_space.shape:
+                state_dim *= dim
+
+            actor = Actor(state_dim, num_actions, config.hidden_dim)
+            actor.to(config.device)
+            if os.path.isfile(model_path):
+                checkpoint = torch.load(model_path, map_location=config.device)
+                actor.load_state_dict(checkpoint["actor"])
+            else:
+                print(f"Model not found: {model_path}")
+                break  # Skip this environment if the model isn't found
+
+            rewards = eval_actor(
+                env=eval_env,
+                actor=actor,
+                n_episodes=config.eval_episodes,
+                seed=config.eval_seed,
+                device=config.device,
+            )
+            
+            eval_seed = int(model_dir[-1:]) + 10
+                    
+            # Collect results
+            all_rewards.append({
+                "Algorithm": "SAC+BC", 
+                "Dataset": dataset_quality,
+                "Environment": env_name,
+                "Reward_mean": np.mean(rewards),
+                "Reward_std": np.std(rewards),
+                "Steps": current_steps,
+                "Seed": eval_seed,
+            })
+    
+        df_rewards = pd.DataFrame(all_rewards)
+        print(df_rewards)
+        
+        # log results
+        df_rewards.to_csv(log_file_path, mode='a', header=not file_exists, index=False)
+        # Ensure header is not written again
+        if not file_exists:
+            file_exists = True
+    # plot
+    # plot_evaluation_results(log_file_path)
+
+def plot_evaluation_results(csv_file_path):
+    # Read the accumulated results
+    df = pd.read_csv(csv_file_path)
+    # df.columns = ['Algorithm', 'Environment', 'Reward_mean', 'Reward_std', 'Steps']
+
+    # Plotting
+    plt.figure(figsize=(10, 6))
+    environments = df['Environment'].unique()
+    for env_name in environments:
+        env_data = df[df['Environment'] == env_name]
+        plt.errorbar(env_data['Steps'], env_data['Reward_mean'], label=env_name, fmt='-o')
+        # plt.errorbar(env_data['Steps'], env_data['Reward_mean'], yerr=env_data['Reward_std'], label=env_name, fmt='-o')
+
+    plt.xlabel('Training Steps')
+    plt.ylabel('Mean Reward')
+    plt.title('Performance of BC across Different Environments')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
 
 if __name__ == "__main__":
     model_paths = {
-            "sac": "./models/sac-n/optimal_2999epochs.pt",
+            "sac": "./models/sac/optimal_2999epochs.pt",
             "bc": "./models/bc/BC_model_optimal.d3",
         }
     
     
     # eval(model_paths=model_paths)
-    train(("optimal", "./datasets/dataset_gen_optimal_policy_40x.pkl"))
+    # eval_all_models(model_dir='models\sac_bc\SAC-N-MiniGrfid-FourRooms-v1-1c60f7f3')
+    train(("optimal", "./datasets/optimal_40x.pkl"))
+    # train(("suboptimal", "./datasets/suboptimal_80x.pkl"))
 

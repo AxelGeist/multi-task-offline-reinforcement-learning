@@ -13,6 +13,8 @@ from four_room.wrappers import gym_wrapper
 from four_room.shortest_path import find_all_action_values
 from four_room.utils import obs_to_state
 
+seed = 0 # 0 for hyperparameter tuning and 1 for training and 2 for evaluation
+
 # TODO: choose which suboptimal policy you want
 optimality = "50" # chose success rate in percentage for suboptimal policy
 zip_path = f'./models/dqn/DQN_model_at_{optimality}pct.zip'
@@ -50,7 +52,7 @@ def generate_dataset():
     # with Display(visible=False) as disp:
     images = []
     for episode in range(num_episodes):
-        obs, info = env.reset()
+        obs, info = env.reset(seed=seed)
         img = env.render()
         done = False
         total_reward = 0
@@ -74,16 +76,17 @@ def generate_dataset():
         print(f'Episode {episode + 1}: Total Reward = {total_reward}')
 
     # visualize the agents actions in the maze
-    imageio.mimsave('rendered_suboptimal_policy.gif', [np.array(img) for i, img in enumerate(images) if i%1 == 0], duration=200)
+    imageio.mimsave('gifs/suboptimal_policy.gif', [np.array(img) for i, img in enumerate(images) if i%1 == 0], duration=200)
+
 
     # Transform dataset arrays to np arrays, like in the DR4L format
     for key in dataset:
         dataset[key] = np.array(dataset[key])
 
     # Save the dataset to a file
-    policy = os.path.basename(__file__)[:-3]
+    # policy = os.path.basename(__file__)[:-3]
     # date_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f'datasets/{policy}_{optimality}pct_{num_episodes}x.pkl'
+    filename = f'datasets/suboptimal_{num_episodes}x.pkl'
     with open(filename, 'wb') as f:
         pickle.dump(dataset, f)
 

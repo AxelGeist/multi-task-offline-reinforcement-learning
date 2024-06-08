@@ -39,16 +39,16 @@ class Config:
     name: str = "BC"
     # training params
     env_name: str = "MiniGrid-FourRooms-v1"
-    n_steps: int = 400
-    n_steps_per_epoch: int = 40
+    n_steps: int = 1000 # TODO: 50k
+    n_steps_per_epoch: int = 200 # TODO: 1k
     # evaluation params
     eval_episodes: int = 40
     # eval_every: int = 40
     # general params
     checkpoints_path: Optional[str] = None
     deterministic_torch: bool = False
-    train_seed: int = 10
-    eval_seed: int = 42
+    train_seed: int = 2
+    eval_seed: int = 1 # TODO: should differ from train_seed
     log_every: int = 100
     device: str = "cuda"
 
@@ -120,7 +120,7 @@ def initialize_envs():
 @pyrallis.wrap()
 def train(config: Config, dataset_tuple: tuple):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument("--seed", type=int, default=config.train_seed)
     parser.add_argument("--gpu", type=int)
     args = parser.parse_args()
     
@@ -137,7 +137,7 @@ def train(config: Config, dataset_tuple: tuple):
         # next_observations=d4rl_dataset['next_observations'],
         terminals=d4rl_dataset['terminals']
     )
-    
+
 
     d3rlpy.seed(args.seed)
     bc = d3rlpy.algos.DiscreteBCConfig().create(device=args.gpu)
@@ -147,9 +147,10 @@ def train(config: Config, dataset_tuple: tuple):
         mdp_dataset,
         n_steps=config.n_steps,
         n_steps_per_epoch=config.n_steps_per_epoch, # for monitoring purposes,
+        experiment_name=f'{dataset_optimality}_{config.train_seed}'
     )
 
-    bc.save(f'./models/bc/BC_model_{dataset_optimality}.d3')
+    # bc.save(f'./models/bc/BC_model_{dataset_optimality}.d3')
 
 
 ############# EVALUATION ##############################################################
@@ -159,8 +160,8 @@ def evaluate_env(env, bc, config, env_name):
     # images = []
     
     for episode in range(config.eval_episodes):
-        # obs, _ = env.reset(seed=config.eval_seed)
-        obs, _ = env.reset()
+        obs, _ = env.reset(seed=config.eval_seed)
+        # obs, _ = env.reset()
         # img = env.render()
         done = False
         steps = 0
@@ -218,6 +219,13 @@ def eval(config: Config, model_paths: dict):
 @pyrallis.wrap()
 def eval_all_models(config: Config, model_dir: str):
     
+    if 'suboptimal' in model_dir:
+        dataset_quality = 'suboptimal'
+    elif 'optimal' in model_dir:
+        dataset_quality = 'optimal'
+    elif 'mixed' in model_dir:
+        dataset_quality = 'mixed'
+    
     log_file_path = f'{model_dir}/results.csv'
     
     # Prepare environments
@@ -235,15 +243,19 @@ def eval_all_models(config: Config, model_dir: str):
         
         # evaluate
         all_rewards = []
+        
+        eval_seed = int(model_dir[-1:]) + 10
     
         for env_name, eval_env in env_list.items():
             rewards = evaluate_env(eval_env, bc, config, env_name)
             all_rewards.append({
                 "Algorithm": "BC", 
-                f"Environment": env_name, 
+                "Dataset": dataset_quality,
+                "Environment": env_name, 
                 "Reward_mean": np.mean(rewards),
                 "Reward_std": np.std(rewards),
                 "Steps": current_steps,
+                "Seed": eval_seed,
             })
     
         df_rewards = pd.DataFrame(all_rewards)
@@ -255,7 +267,7 @@ def eval_all_models(config: Config, model_dir: str):
         if not file_exists:
             file_exists = True
     # plot
-    plot_evaluation_results(log_file_path)
+    # plot_evaluation_results(log_file_path)
 
 def plot_evaluation_results(csv_file_path):
     # Read the accumulated results
@@ -294,11 +306,14 @@ def plot_rewards(df_rewards):
 
 
 
+if __name__ == "__main__":    
+    # train(("optimal", "./datasets/optimal_40x.pkl"))
+    # train(("suboptimal", "./datasets/suboptimal_80x.pkl"))
+    
+    # eval_all_models(model_dir="models/bc/optimal_1")
+    eval_all_models(model_dir="models/bc/optimal_2")
+    eval_all_models(model_dir="models/bc/suboptimal_1")
+    eval_all_models(model_dir="models/bc/suboptimal_2")
 
-
-if __name__ == "__main__":
-    # train(("optimal", "./datasets/dataset_gen_optimal_policy_40x.pkl"))
-    train(("suboptimal", "./datasets/dataset_gen_suboptimal_policy_50pct_80x.pkl"))
-    # eval_all_models(model_dir="d3rlpy_logs\DiscreteBC_20240531030038")
-    # plot_evaluation_results("d3rlpy_logs\DiscreteBC_20240530182221/results.csv")
+    # plot_evaluation_results("d3rlpy_logs\DiscreteBC_20240606232020/results.csv")
     # plot_evaluation_results("d3rlpy_logs\DiscreteBC_20240530172702/results.csv")

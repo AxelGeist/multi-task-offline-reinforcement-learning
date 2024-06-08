@@ -55,7 +55,7 @@ class TrainConfig:
     eval_episodes: int = 40
     eval_every: int = 5
     # general params
-    checkpoints_path: Optional[str] = "./models/sac-n"
+    checkpoints_path: Optional[str] = "./models/sac"
     deterministic_torch: bool = False
     train_seed: int = 10
     eval_seed: int = 42
@@ -707,4 +707,4 @@ def train(config: TrainConfig, dataset_tuple: tuple):
 
 
 if __name__ == "__main__":
-    train(("optimal", "./datasets/dataset_gen_optimal_policy_40x.pkl"))
+    train(("optimal", "./datasets/optimal_40x.pkl"))

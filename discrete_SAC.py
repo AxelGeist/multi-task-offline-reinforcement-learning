@@ -47,24 +47,25 @@ class Config:
     buffer_size: int = 1_000_000
     env_name: str = "MiniGrid-FourRooms-v1"
     batch_size: int = 256
-    num_epochs: int = 3000
+    num_epochs: int = 20
     num_updates_on_epoch: int = 10
     normalize_reward: bool = False
     # evaluation params
     eval_episodes: int = 40 # there are 40 tasks in each test_config
-    eval_every: int = 1000
+    eval_every: int = 50
     # general params
-    checkpoints_path: Optional[str] = "./models/sac-n"
+    checkpoints_path: Optional[str] = "./models/sac"
     deterministic_torch: bool = False
-    train_seed: int = 10
-    eval_seed: int = 42
+    train_seed: int = 1
+    eval_seed: int = 1
     log_every: int = 100
     device: str = "cuda"
 
     def __post_init__(self):
-        self.name = f"{self.name}-{self.env_name}-{str(uuid.uuid4())[:8]}"
-        if self.checkpoints_path is not None:
-            self.checkpoints_path = os.path.join(self.checkpoints_path, self.name)
+        self.name = f"{str(uuid.uuid4())[:8]}"
+        # self.name = f"{self.name}-{self.env_name}-{str(uuid.uuid4())[:8]}"
+        # if self.checkpoints_path is not None:
+        #     self.checkpoints_path = os.path.join(self.checkpoints_path, self.name)
 
 ############# Environment #############################################################
 
@@ -566,7 +567,7 @@ def modify_reward(dataset, env_name, max_episode_steps=1000):
 @pyrallis.wrap()
 def train(config: Config, dataset_tuple: tuple):
     set_seed(config.train_seed, deterministic_torch=config.deterministic_torch)
-    wandb_init(asdict(config))
+    # wandb_init(asdict(config))
     
     dataset_optimality = dataset_tuple[0]
     dataset_path = dataset_tuple[1]
@@ -623,6 +624,7 @@ def train(config: Config, dataset_tuple: tuple):
     )
     # saving config to the checkpoint
     if config.checkpoints_path is not None:
+        config.checkpoints_path = f'{config.checkpoints_path}/{dataset_optimality}_{config.name}'
         print(f"Checkpoints path: {config.checkpoints_path}")
         os.makedirs(config.checkpoints_path, exist_ok=True)
         # with open(os.path.join(config.checkpoints_path, f"config_{config.optimality}.yaml"), "w") as f:
@@ -638,8 +640,8 @@ def train(config: Config, dataset_tuple: tuple):
             batch = buffer.sample(config.batch_size)
             update_info = trainer.update(batch)
 
-            if total_updates % config.log_every == 0:
-                wandb.log({"epoch": epoch, **update_info})
+            # if total_updates % config.log_every == 0:
+            #     wandb.log({"epoch": epoch, **update_info})
 
             total_updates += 1
             n_steps += 1 # TODO: check if that really represents 1 step
@@ -647,35 +649,35 @@ def train(config: Config, dataset_tuple: tuple):
         # evaluation
         # if epoch % config.eval_every == 0 or epoch == config.num_epochs - 1:
         if n_steps % config.eval_every == 0 or n_steps == config.num_epochs * config.num_updates_on_epoch:
-            eval_returns = eval_actor(
-                env=train_env,
-                actor=actor,
-                n_episodes=config.eval_episodes,
-                seed=config.eval_seed,
-                device=config.device,
-            )
-            eval_log = {
-                "eval/reward_mean": np.mean(eval_returns),
-                "eval/reward_std": np.std(eval_returns),
-                "epoch": epoch,
-            }
-            if hasattr(train_env, "get_normalized_score"):
-                normalized_score = train_env.get_normalized_score(eval_returns) * 100.0
-                eval_log["eval/normalized_score_mean"] = np.mean(normalized_score)
-                eval_log["eval/normalized_score_std"] = np.std(normalized_score)
+            # eval_returns = eval_actor(
+            #     env=train_env,
+            #     actor=actor,
+            #     n_episodes=config.eval_episodes,
+            #     seed=config.eval_seed,
+            #     device=config.device,
+            # )
+            # eval_log = {
+            #     "eval/reward_mean": np.mean(eval_returns),
+            #     "eval/reward_std": np.std(eval_returns),
+            #     "epoch": epoch,
+            # }
+            # if hasattr(train_env, "get_normalized_score"):
+            #     normalized_score = train_env.get_normalized_score(eval_returns) * 100.0
+            #     eval_log["eval/normalized_score_mean"] = np.mean(normalized_score)
+            #     eval_log["eval/normalized_score_std"] = np.std(normalized_score)
 
-            wandb.log(eval_log)
+            # wandb.log(eval_log)
 
             if config.checkpoints_path is not None:
                 torch.save(
                     trainer.state_dict(),
-                    os.path.join(config.checkpoints_path, f"{dataset_optimality}_{n_steps}.pt"),
+                    os.path.join(config.checkpoints_path, f"model_{n_steps}.pt"),
                 )
 
-    wandb.finish()
+    # wandb.finish()
     
-@pyrallis.wrap()
-def eval(config: Config, model_paths: dict):
+# @pyrallis.wrap()
+def eval(config: Config, model_paths: dict, environments: List[str] = ["train", "test_100", "test_0"]):
     set_seed(config.eval_seed, deterministic_torch=config.deterministic_torch)
     
     model_path = model_paths["sac"]
@@ -683,6 +685,10 @@ def eval(config: Config, model_paths: dict):
     results = []  # List to store results for each environment and evaluation
     
     for env_name, eval_env in env_list.items():
+        # only evaluate the listed environments and skip missing environments
+        if env_name not in environments:
+            break
+    
         num_actions = eval_env.action_space.n
         state_dim = 1
         for dim in eval_env.observation_space.shape:
@@ -723,6 +729,13 @@ def eval(config: Config, model_paths: dict):
 @pyrallis.wrap()
 def eval_all_models(config: Config, model_dir: str):
     
+    if 'suboptimal' in model_dir:
+        dataset_quality = 'suboptimal'
+    elif 'optimal' in model_dir:
+        dataset_quality = 'optimal'
+    elif 'mixed' in model_dir:
+        dataset_quality = 'mixed'
+    
     log_file_path = f'{model_dir}/results.csv'
     
     # Prepare environments
@@ -735,11 +748,11 @@ def eval_all_models(config: Config, model_dir: str):
         
         
         # load model
-        current_steps = (x+1) * config.num_epochs
-        model_path = f'{model_dir}/optimal_{current_steps}.pt'
+        current_steps = (x+1) * config.eval_every
+        model_path = f'{model_dir}/model_{current_steps}.pt'
 
 
-        results = []  # List to store results for each environment and evaluation
+        all_rewards = []  # List to store results for each environment and evaluation
         
         for env_name, eval_env in env_list.items():
             num_actions = eval_env.action_space.n
@@ -764,17 +777,21 @@ def eval_all_models(config: Config, model_dir: str):
                 device=config.device,
             )
             
+            eval_seed = int(model_dir[-1:]) + 10
+            
             # Collect results
-            results.append({
+            all_rewards.append({
                 "Algorithm": "SAC", 
+                "Dataset": dataset_quality,
                 "Environment": env_name,
                 "Reward_mean": np.mean(rewards),
                 "Reward_std": np.std(rewards),
                 "Steps": current_steps,
+                "Seed": eval_seed,
             })
     
     
-        df_rewards = pd.DataFrame(results)
+        df_rewards = pd.DataFrame(all_rewards)
         print(df_rewards)
         
         # log results
@@ -783,7 +800,7 @@ def eval_all_models(config: Config, model_dir: str):
         if not file_exists:
             file_exists = True
     # plot
-    plot_evaluation_results(log_file_path)
+    # plot_evaluation_results(log_file_path)
 
 def plot_evaluation_results(csv_file_path):
     # Read the accumulated results
@@ -809,13 +826,13 @@ def plot_evaluation_results(csv_file_path):
 
 if __name__ == "__main__":
     model_paths = {
-            "sac": "./models/sac-n/optimal_2999epochs.pt",
+            "sac": "./models/sac/optimal_2999epochs.pt",
             "bc": "./models/bc/BC_model_optimal.d3",
         }
     
     
-    # eval_all_models(model_dir="models\sac-n\SAC-N-MiniGrid-FourRooms-v1-eebe6680")
+    # eval_all_models(model_dir="models\sac\SAC-N-MiniGrid-FourRooms-v1-4e782860")
     # eval(model_paths=model_paths)
-    # train(("optimal", "./datasets/dataset_gen_optimal_policy_40x.pkl"))
-    train(("suboptimal", "./datasets/dataset_gen_suboptimal_policy_50pct_80x.pkl"))
+    # train(dataset_tuple=("optimal", "./datasets/optimal_40x.pkl"))
+    train(dataset_tuple=("suboptimal", "./datasets/suboptimal_80x.pkl"))
 

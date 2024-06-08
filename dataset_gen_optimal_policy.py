@@ -11,6 +11,8 @@ from four_room.wrappers import gym_wrapper
 from four_room.shortest_path import find_all_action_values
 from four_room.utils import obs_to_state
 
+seed = 0 # 0 for hyperparameter tuning and 1 for training and 2 for evaluation
+
 # Create and register a custom environment
 gym.register('MiniGrid-FourRooms-v1', entry_point=FourRoomsEnv)
 
@@ -28,7 +30,7 @@ env = gym_wrapper(gym.make('MiniGrid-FourRooms-v1',
     render_mode="rgb_array"))
 
 
-class Agent:
+class OptimalAgent:
     
     ## Optimal Policy
     def decide_action(self, obs):
@@ -42,7 +44,7 @@ class Agent:
 # with Display(visible=False) as disp:
 def generate_dataset():
     # Instantiate the agent
-    agent = Agent()
+    agent = OptimalAgent()
 
     num_episodes = 40 # use 40 as we have 40 mazes, else we have duplicates. Only if it is not optimal we should have more than 40 
     dataset = { # replay buffer in the D4RL format
@@ -55,7 +57,7 @@ def generate_dataset():
     
     images = []
     for episode in range(num_episodes):
-        obs, info = env.reset()
+        obs, info = env.reset(seed=seed)
         img = env.render()
         done = False
         total_reward = 0
@@ -80,7 +82,7 @@ def generate_dataset():
         print(f'Episode {episode + 1}: Total Reward = {total_reward}')
 
     # visualize the agents actions in the maze
-    imageio.mimsave('rendered_optimal_policy.gif', [np.array(img) for i, img in enumerate(images) if i%1 == 0], duration=200)
+    imageio.mimsave('gifs/optimal_policy.gif', [np.array(img) for i, img in enumerate(images) if i%1 == 0], duration=200)
 
 
     # Transform dataset arrays to np arrays, like in the DR4L format
@@ -89,9 +91,9 @@ def generate_dataset():
 
 
     # Save the dataset to a file
-    policy = os.path.basename(__file__)[:-3]
+    # policy = os.path.basename(__file__)[:-3]
     # date_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f'datasets/{policy}_{num_episodes}x.pkl'
+    filename = f'datasets/optimal_{num_episodes}x.pkl'
     with open(filename, 'wb') as f:
         pickle.dump(dataset, f)
 
