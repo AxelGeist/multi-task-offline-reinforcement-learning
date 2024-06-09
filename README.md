@@ -1,6 +1,6 @@
 # multi-task-offline-reinforcement-learning
 
-## Environment: four_room
+## Environment: MiniGrid - four_room
 
 ## Dataset creation for Offline RL
 Datasets have been created with an Optimal as well as Suboptimal policy.
