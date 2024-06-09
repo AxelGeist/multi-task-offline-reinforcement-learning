@@ -11,7 +11,7 @@ from four_room.wrappers import gym_wrapper
 from four_room.shortest_path import find_all_action_values
 from four_room.utils import obs_to_state
 
-seed = 0 # 0 for hyperparameter tuning and 1 for training and 2 for evaluation
+seed = 9999
 
 # Create and register a custom environment
 gym.register('MiniGrid-FourRooms-v1', entry_point=FourRoomsEnv)
@@ -57,7 +57,7 @@ def generate_dataset():
     
     images = []
     for episode in range(num_episodes):
-        obs, info = env.reset(seed=seed)
+        obs, info = env.reset()
         img = env.render()
         done = False
         total_reward = 0
@@ -93,7 +93,7 @@ def generate_dataset():
     # Save the dataset to a file
     # policy = os.path.basename(__file__)[:-3]
     # date_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f'datasets/optimal_{num_episodes}x.pkl'
+    filename = f'datasets/optimal_{num_episodes}x_{seed}.pkl'
     with open(filename, 'wb') as f:
         pickle.dump(dataset, f)
 

@@ -1,0 +1,16 @@
+Algorithm,Dataset,Environment,Reward_mean,Reward_std,Steps,Seed
+BC,optimal,train,1.0,0.0,200,11
+BC,optimal,test_100,0.225,0.41758232721225164,200,11
+BC,optimal,test_0,0.1,0.30000000000000004,200,11
+BC,optimal,train,1.0,0.0,400,11
+BC,optimal,test_100,0.325,0.4683748498798799,400,11
+BC,optimal,test_0,0.25,0.4330127018922193,400,11
+BC,optimal,train,1.0,0.0,600,11
+BC,optimal,test_100,0.35,0.4769696007084729,600,11
+BC,optimal,test_0,0.2,0.4,600,11
+BC,optimal,train,1.0,0.0,800,11
+BC,optimal,test_100,0.45,0.49749371855331004,800,11
+BC,optimal,test_0,0.225,0.4175823272122517,800,11
+BC,optimal,train,1.0,0.0,1000,11
+BC,optimal,test_100,0.325,0.46837484987987993,1000,11
+BC,optimal,test_0,0.225,0.4175823272122517,1000,11

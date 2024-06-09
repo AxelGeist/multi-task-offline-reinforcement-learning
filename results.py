@@ -196,12 +196,52 @@ def plotGeneralizationGraph(dataset_quality: str):
 ## Number of training levels X to X - SAC+BC (Train, Test100, Test0)
 ## Number of training levels X to X- BC (Train, Test100, Test0)
 
-# 3. Data Size Graphs
+# 3. Dataset Size Graphs
 ## 40x to 400x Optimal dataset - SAC+BC (Train, Test100, Test0) vs. SAC (Train, Test100, Test0) vs. BC (Train, Test100, Test0)
 ## 80x to 400x Suboptimal dataset - SAC+BC (Train, Test100, Test0)
 ## 80x to 400x Suboptimal dataset - SAC (Train, Test100, Test0)
 ## 80x to 400x Suboptimal dataset - BC (Train, Test100, Test0)
 
+def plotVariousDatasetSizeGraph(dataset_quality: str, algorithm: str):
+    
+    ## dataset sizes: 80, 160, 320 -> so need model trained & evaluated on each of them for only 25k training steps
+    
+    if dataset_quality == 'optimal':
+        dataset_average = 1.0
+        dataset_size = "40"
+    elif dataset_quality == 'suboptimal':
+        dataset_average = 0.5
+        dataset_size = "80"
+    elif dataset_quality == 'mixed':
+        dataset_average = 1.0
+        dataset_size = "40"
+    
+    df = merge_all_results(
+        [
+            f'models/{algorithm}/{dataset_quality}__{dataset_size}_1/results.csv', 
+            f'models/{algorithm}/{dataset_quality}__{dataset_size}_2/results.csv', 
+            f'models/{algorithm}/{dataset_quality}__{dataset_size}_3/results.csv', 
+            f'models/{algorithm}/{dataset_quality}__{dataset_size}_4/results.csv', 
+            f'models/{algorithm}/{dataset_quality}__{dataset_size}_5/results.csv', 
+            
+            f'models/{algorithm}/{dataset_quality}__160_1/results.csv', 
+            f'models/{algorithm}/{dataset_quality}__160_2/results.csv', 
+            f'models/{algorithm}/{dataset_quality}__160_3/results.csv', 
+            f'models/{algorithm}/{dataset_quality}__160_4/results.csv', 
+            f'models/{algorithm}/{dataset_quality}__160_5/results.csv', 
+            
+            f'models/{algorithm}/{dataset_quality}__320_1/results.csv', 
+            f'models/{algorithm}/{dataset_quality}__320_2/results.csv', 
+            f'models/{algorithm}/{dataset_quality}__320_3/results.csv', 
+            f'models/{algorithm}/{dataset_quality}__320_4/results.csv', 
+            f'models/{algorithm}/{dataset_quality}__320_5/results.csv', 
+        ])
+    
+    # TODO: plot the graph & create the models & the add dataset_size to the results.csv
+    
+    
+    
+    
 
 
 

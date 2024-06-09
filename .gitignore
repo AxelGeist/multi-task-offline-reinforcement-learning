@@ -10,11 +10,8 @@ venv/
 env/
 ENV/
 
-# Ignore data files (assuming data is stored separately)
-datasets/
-
 # Ignore model files (assuming models are saved separately)
-models/
+# models/
 
 # Ignore logs and outputs
 logs/

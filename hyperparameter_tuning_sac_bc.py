@@ -10,22 +10,13 @@ import discrete_SAC_BC
 # Specify dataset
 dataset_quality = "optimal"
 dataset_size = "40"
-dataset_pct = "100"
-
-
-
-
-if dataset_pct == "100":
-    dataset_path = f"./datasets/dataset_gen_{dataset_quality}_policy_{dataset_size}x.pkl"
-    print("OPTIMAL")
-else:
-    dataset_path = f"./datasets/dataset_gen_{dataset_quality}_policy_{dataset_pct}pct_{dataset_size}x.pkl"
-    print("SUBOPTIMAL")
+seed = "1"
+dataset_path = f"./datasets/{dataset_quality}_{dataset_size}x_{seed}.pkl"
 
 
 def objective(trial):
 
-    
+
     config = discrete_SAC_BC.Config()
     
     # Define the hyperparameters to tune

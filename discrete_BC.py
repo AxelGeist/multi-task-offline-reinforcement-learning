@@ -39,16 +39,16 @@ class Config:
     name: str = "BC"
     # training params
     env_name: str = "MiniGrid-FourRooms-v1"
-    n_steps: int = 1000 # TODO: 50k
-    n_steps_per_epoch: int = 200 # TODO: 1k
+    n_steps: int = 3000 # TODO: 50k
+    n_steps_per_epoch: int = 500 # TODO: 1k
     # evaluation params
     eval_episodes: int = 40
     # eval_every: int = 40
     # general params
     checkpoints_path: Optional[str] = None
     deterministic_torch: bool = False
-    train_seed: int = 2
-    eval_seed: int = 1 # TODO: should differ from train_seed
+    train_seed: int = 1
+    eval_seed: int = 11 # TODO: should differ from train_seed
     log_every: int = 100
     device: str = "cuda"
 
@@ -137,17 +137,17 @@ def train(config: Config, dataset_tuple: tuple):
         # next_observations=d4rl_dataset['next_observations'],
         terminals=d4rl_dataset['terminals']
     )
+    print("SIZE:", mdp_dataset.size())
 
 
     d3rlpy.seed(args.seed)
     bc = d3rlpy.algos.DiscreteBCConfig().create(device=args.gpu)
 
-
     bc.fit(
         mdp_dataset,
         n_steps=config.n_steps,
         n_steps_per_epoch=config.n_steps_per_epoch, # for monitoring purposes,
-        experiment_name=f'{dataset_optimality}_{config.train_seed}'
+        experiment_name=f'{dataset_optimality}_{mdp_dataset.size()}_{config.train_seed}'
     )
 
     # bc.save(f'./models/bc/BC_model_{dataset_optimality}.d3')
@@ -178,22 +178,18 @@ def evaluate_env(env, bc, config, env_name):
             # img = env.render()
         
         rewards.append(reward)
-        # print(f'Episode {episode + 1} in {env_name}: Total Reward = {total_reward}')
+        # print(f'Episode {episode + 1} in {env_name}: Reward = {rewards}')
         
-        
-    # Calculate average reward
-    reward_mean = np.mean(rewards)
-
     # visualize the agents actions in the maze
-    # gif_path = f'rendered_BC_with_{optimality}_policy_{env_name}.gif'
+    # gif_path = f'rendered_BC_{env_name}.gif'
     # imageio.mimsave(gif_path, [np.array(img) for i, img in enumerate(images) if i % 1 == 0], duration=200)
-    # print(f"Saved GIF for {env_name} and {optimality} at {gif_path}") 
+    # print(f"Saved GIF for {env_name} at {gif_path}") 
     return rewards
 
 @pyrallis.wrap()
-def eval(config: Config, model_paths: dict):
+def eval(config: Config, model_path: str):
     # model_path = model_paths["bc"]
-    model_path = "d3rlpy_logs\DiscreteBC_20240530010539\model_400.d3"
+    # model_path = "d3rlpy_logs\DiscreteBC_20240530010539\model_400.d3"
     
     bc = d3rlpy.load_learnable(model_path)
     
@@ -309,11 +305,17 @@ def plot_rewards(df_rewards):
 if __name__ == "__main__":    
     # train(("optimal", "./datasets/optimal_40x.pkl"))
     # train(("suboptimal", "./datasets/suboptimal_80x.pkl"))
+    # train(("mixed", "./datasets/mixed_80x.pkl"))
+    
+    # eval(model_path="d3rlpy_logs\optimal_40_1_20240608223223\model_1000.d3")
+
+
+    eval_all_models(model_dir="d3rlpy_logs\mixed_80_1_20240609033529")
     
     # eval_all_models(model_dir="models/bc/optimal_1")
-    eval_all_models(model_dir="models/bc/optimal_2")
-    eval_all_models(model_dir="models/bc/suboptimal_1")
-    eval_all_models(model_dir="models/bc/suboptimal_2")
+    # eval_all_models(model_dir="models/bc/optimal_2")
+    # eval_all_models(model_dir="models/bc/suboptimal_1")
+    # eval_all_models(model_dir="models/bc/suboptimal_2")
 
     # plot_evaluation_results("d3rlpy_logs\DiscreteBC_20240606232020/results.csv")
     # plot_evaluation_results("d3rlpy_logs\DiscreteBC_20240530172702/results.csv")

@@ -8,22 +8,9 @@ from d3rlpy.dataset import MDPDataset
 import discrete_BC
 
 # Specify dataset
-dataset_quality = "optimal"
-dataset_size = "40"
-dataset_pct = "100"
-
-
-
-
-if dataset_pct == "100":
-    dataset_path = f"./datasets/dataset_gen_{dataset_quality}_policy_{dataset_size}x.pkl"
-    print("OPTIMAL")
-else:
-    dataset_path = f"./datasets/dataset_gen_{dataset_quality}_policy_{dataset_pct}pct_{dataset_size}x.pkl"
-    print("SUBOPTIMAL")
-
-
-
+dataset_quality = "mixed"
+dataset_size = "80"
+dataset_path = f"./datasets/{dataset_quality}_{dataset_size}x.pkl"
 
 
 def objective(trial):
@@ -95,13 +82,13 @@ def optimize_bc():
     print("Best value: ", study.best_trial.value)    
 
     fig = plot_optimization_history(study)
-    fig.update_layout(title=f"History: BC Tuning on {dataset_size}x {dataset_quality.capitalize()} ({dataset_pct}%) Dataset",)
+    fig.update_layout(title=f"History: BC Tuning on {dataset_size}x {dataset_quality.capitalize()} Dataset",)
     fig.write_image(f"results/tuning/{study_name}_{dataset_quality}_history.png") 
     fig = plot_rank(study)
-    fig.update_layout(title=f"Rank: BC Tuning on {dataset_size}x {dataset_quality.capitalize()} ({dataset_pct}%) Dataset",)
+    fig.update_layout(title=f"Rank: BC Tuning on {dataset_size}x {dataset_quality.capitalize()} Dataset",)
     fig.write_image(f"results/tuning/{study_name}_{dataset_quality}_rank.png")
     fig = plot_contour(study, params=[ "learning_rate", "n_steps"])
-    fig.update_layout(title=f"Contour: BC Tuning on {dataset_size}x {dataset_quality.capitalize()} ({dataset_pct}%) Dataset",)
+    fig.update_layout(title=f"Contour: BC Tuning on {dataset_size}x {dataset_quality.capitalize()} Dataset",)
     fig.write_image(f"results/tuning/{study_name}_{dataset_quality}_contour.png") 
 
     return study.best_trial.params
