@@ -50,15 +50,6 @@ from d3rlpy.dataset import MDPDataset
 
 def plotLearningCurve(dataset_quality: str, algorithm: str):
     
-    df = merge_all_results(
-        [
-            f'models/{algorithm}/{dataset_quality}_1/results.csv', 
-            f'models/{algorithm}/{dataset_quality}_2/results.csv', 
-            # f'models/{algorithm}/{dataset_quality}_3/results.csv', 
-            # f'models/{algorithm}/{dataset_quality}_4/results.csv', 
-            # f'models/{algorithm}/{dataset_quality}_5/results.csv', 
-        ])
-    
     if dataset_quality == 'optimal':
         dataset_average = 1.0
         dataset_size = "40"
@@ -67,7 +58,18 @@ def plotLearningCurve(dataset_quality: str, algorithm: str):
         dataset_size = "80"
     elif dataset_quality == 'mixed':
         dataset_average = 1.0
-        dataset_size = "40"
+        dataset_size = "80"
+    
+    df = merge_all_results(
+        [
+            f'models/{algorithm}/{dataset_quality}_{dataset_size}_10/results.csv', 
+            f'models/{algorithm}/{dataset_quality}_{dataset_size}_11/results.csv', 
+            f'models/{algorithm}/{dataset_quality}_{dataset_size}_12/results.csv', 
+            f'models/{algorithm}/{dataset_quality}_{dataset_size}_13/results.csv', 
+            f'models/{algorithm}/{dataset_quality}_{dataset_size}_14/results.csv', 
+        ])
+    
+
     
     print(df)
     
@@ -98,9 +100,9 @@ def plotLearningCurve(dataset_quality: str, algorithm: str):
         env_data = grouped_env[grouped_env["Environment"] == environment]
         steps = env_data["Steps"].values
         reward_mean = env_data["Reward_mean"].values
-        reward_std = env_data["Reward_std"].values
+        # reward_std = env_data["Reward_std"].values
         plt.plot(steps, reward_mean, marker='o', label=environment)
-        plt.fill_between(steps, reward_mean - reward_std, reward_mean + reward_std, alpha=0.2)
+        # plt.fill_between(steps, reward_mean - reward_std, reward_mean + reward_std, alpha=0.2)
 
     dataset_line = plt.axhline(y=dataset_average, color='red', linestyle='dotted', linewidth=1, label=f'{dataset_quality} Dataset Average')
     dataset_line.set_dashes([5, 10])  # 5 points on, 10 points off
@@ -135,7 +137,7 @@ def plotGeneralizationGraph(dataset_quality: str):
         dataset_size = "80"
     elif dataset_quality == 'mixed':
         dataset_average = 1.0
-        dataset_size = "40"
+        dataset_size = "80"
         
     df = merge_all_results(
     [
@@ -214,7 +216,7 @@ def plotVariousDatasetSizeGraph(dataset_quality: str, algorithm: str):
         dataset_size = "80"
     elif dataset_quality == 'mixed':
         dataset_average = 1.0
-        dataset_size = "40"
+        dataset_size = "80"
     
     df = merge_all_results(
         [
@@ -384,7 +386,7 @@ def main():
     
     
     # results
-    plotLearningCurve(dataset_quality='optimal', algorithm = 'bc')    
+    plotLearningCurve(dataset_quality='optimal', algorithm = 'sac_bc')    
     # plotGeneralizationGraph(dataset_quality = 'suboptimal')
     
 

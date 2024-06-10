@@ -11,7 +11,7 @@ env/
 ENV/
 
 # Ignore model files (assuming models are saved separately)
-# models/
+models/
 
 # Ignore logs and outputs
 logs/

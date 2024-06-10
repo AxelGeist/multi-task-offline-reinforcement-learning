@@ -8,8 +8,8 @@ from d3rlpy.dataset import MDPDataset
 import discrete_BC
 
 # Specify dataset
-dataset_quality = "mixed"
-dataset_size = "80"
+dataset_quality = "optimal"
+dataset_size = "40"
 dataset_path = f"./datasets/{dataset_quality}_{dataset_size}x.pkl"
 
 
@@ -75,7 +75,7 @@ def optimize_bc():
     storage_name = f"sqlite:///{study_name}_{dataset_quality}.db".format(study_name)
     study = optuna.create_study(direction='maximize', study_name=study_name, storage=storage_name, load_if_exists=True)
     # study = optuna.create_study(direction='maximize', study_name='bc_tuning')  # Use 'minimize' for loss, 'maximize' for accuracy or other performance metrics
-    study.optimize(objective, n_trials=50)  # Number of trials to perform
+    # study.optimize(objective, n_trials=50)  # Number of trials to perform
 
 
     print("Best hyperparameters: ", study.best_trial.params) 

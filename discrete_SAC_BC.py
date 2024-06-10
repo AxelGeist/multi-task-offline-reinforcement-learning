@@ -38,23 +38,23 @@ class Config:
     # model params
     hidden_dim: int = 256
     num_critics: int = 2 # defines the N in SAC-N
-    beta: float = 1 # determines trade-off of the BC term
+    beta: float = 1.0 # determines trade-off of the BC term
     gamma: float = 0.99
     tau: float = 5e-3
-    actor_learning_rate: float = 3e-4
-    critic_learning_rate: float = 3e-4
-    alpha_learning_rate: float = 3e-4
+    actor_learning_rate: float = 0.00023
+    critic_learning_rate: float = 0.00023
+    alpha_learning_rate: float = 0.00023
     max_action: float = 1.0
     # training params
     buffer_size: int = 1_000_000
     env_name: str = "MiniGrfid-FourRooms-v1"
     batch_size: int = 256
-    num_epochs: int = 20
+    num_epochs: int = 5000
     num_updates_on_epoch: int = 10
     normalize_reward: bool = False
     # evaluation params
     eval_episodes: int = 40 # there are 40 tasks in each test_config
-    eval_every: int = 50
+    eval_every: int = 1000
     # general params
     checkpoints_path: Optional[str] = "./models/sac_bc"
     deterministic_torch: bool = False
@@ -534,7 +534,7 @@ def eval_actor(
     actor.eval()
     episode_rewards = []
     for _ in range(n_episodes):
-        state, _ = env.reset(seed=seed)
+        state, _ = env.reset()
         state = state.flatten()
         done = False
         episode_reward = 0.0
@@ -575,7 +575,8 @@ def modify_reward(dataset, env_name, max_episode_steps=1000):
 
 
 @pyrallis.wrap()
-def train(config: Config, dataset_tuple: tuple):
+def train(config: Config, dataset_tuple: tuple, train_seed: int):
+    config.train_seed = train_seed
     set_seed(config.train_seed, deterministic_torch=config.deterministic_torch)
     # wandb_init(asdict(config))
     
@@ -598,6 +599,9 @@ def train(config: Config, dataset_tuple: tuple):
     #d4rl_dataset = d4rl.qlearning_dataset(eval_env)
     with open(dataset_path, 'rb') as file:
         d4rl_dataset = dill.load(file)
+        
+    dataset_size = sum(d4rl_dataset['terminals'])
+
 
     if config.normalize_reward:
         modify_reward(d4rl_dataset, config.env_name)
@@ -636,7 +640,7 @@ def train(config: Config, dataset_tuple: tuple):
     # saving config to the checkpoint
     if config.checkpoints_path is not None:
         
-        config.checkpoints_path = f'{config.checkpoints_path}/{dataset_optimality}_{config.name}'
+        config.checkpoints_path = f'{config.checkpoints_path}/{dataset_optimality}_{dataset_size}_{config.train_seed}_{config.name}'
         print(f"Checkpoints path: {config.checkpoints_path}")
         os.makedirs(config.checkpoints_path)
         # os.makedirs(config.checkpoints_path, exist_ok=True)
@@ -691,7 +695,7 @@ def train(config: Config, dataset_tuple: tuple):
     # wandb.finish()
     
     
-# @pyrallis.wrap()
+@pyrallis.wrap()
 # def eval(config: Config, model_paths: dict, environments: ['train', "test_0", "test_100"]):
 def eval(config: Config, model_paths: dict, environments: List[str] = ["train", "test_100", "test_0"]):
     set_seed(config.eval_seed, deterministic_torch=config.deterministic_torch)
@@ -743,6 +747,7 @@ def eval(config: Config, model_paths: dict, environments: List[str] = ["train", 
 
 @pyrallis.wrap()
 def eval_all_models(config: Config, model_dir: str):
+    config.eval_seed = int(model_dir.split('_')[-1]) + 10
     set_seed(config.eval_seed, deterministic_torch=config.deterministic_torch)
     
     if 'suboptimal' in model_dir:
@@ -770,6 +775,18 @@ def eval_all_models(config: Config, model_dir: str):
         
         # evaluate
         all_rewards = []
+        
+        if current_steps == config.eval_every:
+            for env_name, eval_env in env_list.items():
+                all_rewards.append({
+                    "Algorithm": "SAC+BC", 
+                    "Dataset": dataset_quality,
+                    "Environment": env_name,
+                    "Reward_mean": 0,
+                    "Reward_std": 0,
+                    "Steps": 0,
+                    "Seed": config.eval_seed,
+                })
     
         for env_name, eval_env in env_list.items():
             num_actions = eval_env.action_space.n
@@ -786,6 +803,7 @@ def eval_all_models(config: Config, model_dir: str):
                 print(f"Model not found: {model_path}")
                 break  # Skip this environment if the model isn't found
 
+
             rewards = eval_actor(
                 env=eval_env,
                 actor=actor,
@@ -794,8 +812,6 @@ def eval_all_models(config: Config, model_dir: str):
                 device=config.device,
             )
             
-            eval_seed = int(model_dir[-1:]) + 10
-                    
             # Collect results
             all_rewards.append({
                 "Algorithm": "SAC+BC", 
@@ -804,7 +820,7 @@ def eval_all_models(config: Config, model_dir: str):
                 "Reward_mean": np.mean(rewards),
                 "Reward_std": np.std(rewards),
                 "Steps": current_steps,
-                "Seed": eval_seed,
+                "Seed": config.eval_seed,
             })
     
         df_rewards = pd.DataFrame(all_rewards)
@@ -848,6 +864,23 @@ if __name__ == "__main__":
     
     # eval(model_paths=model_paths)
     # eval_all_models(model_dir='models\sac_bc\SAC-N-MiniGrfid-FourRooms-v1-1c60f7f3')
-    train(("optimal", "./datasets/optimal_40x.pkl"))
+    # train(("optimal", "./datasets/optimal_40x.pkl"))
     # train(("suboptimal", "./datasets/suboptimal_80x.pkl"))
+    
+    train(("suboptimal", "./datasets/suboptimal_80x.pkl"), 10)
+    # train(("mixed", "./datasets/mixed_80x.pkl"), 11)
+    # train(("mixed", "./datasets/mixed_80x.pkl"), 12)
+    # train(("mixed", "./datasets/mixed_80x.pkl"), 13)
+    # train(("mixed", "./datasets/mixed_80x.pkl"), 14)
+
+
+    
+    # eval_all_models(model_dir='models\sac_bc\optimal_40_10')
+    # eval_all_models(model_dir='models\sac_bc\optimal_40_11')
+    # eval_all_models(model_dir='models\sac_bc\optimal_40_12')
+    # eval_all_models(model_dir='models\sac_bc\optimal_40_13')
+    # eval_all_models(model_dir='models\sac_bc\optimal_40_14')
+
+
+
 

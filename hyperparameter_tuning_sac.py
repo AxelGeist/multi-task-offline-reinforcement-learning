@@ -8,8 +8,8 @@ from d3rlpy.dataset import MDPDataset
 import discrete_SAC
 
 # Specify dataset
-dataset_quality = "suboptimal"
-dataset_size = "80"
+dataset_quality = "optimal"
+dataset_size = "40"
 dataset_path = f"./datasets/{dataset_quality}_{dataset_size}x.pkl"
 
 
@@ -44,7 +44,7 @@ def objective(trial):
         discrete_SAC.train(config=config, dataset_tuple=(dataset_quality, dataset_path))
 
         # Load Model
-        model_path = {"sac": f"{config.checkpoints_path}/{dataset_quality}_{n_steps}.pt"}
+        model_path = {"sac": f"{config.checkpoints_path}/model_{n_steps}.pt"}
 
         # Evaluate the model performance
         df_rewards_all_envs = discrete_SAC.eval(config=config, model_paths=model_path, environments=["train"])
@@ -67,7 +67,7 @@ def optimize_sac():
     study_name = "tuning_sac"  # Unique identifier of the study.
     storage_name = f"sqlite:///{study_name}_{dataset_quality}.db".format(study_name)
     study = optuna.create_study(direction='maximize', study_name=study_name, storage=storage_name, load_if_exists=True)
-    study.optimize(objective, n_trials=20)  # Number of trials to perform
+    # study.optimize(objective, n_trials=20)  # Number of trials to perform
 
     print("Best hyperparameters: ", study.best_trial.params) 
     print("Best value: ", study.best_trial.value)    

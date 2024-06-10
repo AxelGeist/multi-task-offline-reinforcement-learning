@@ -524,7 +524,7 @@ def eval_actor(
     actor.eval()
     episode_rewards = []
     for _ in range(n_episodes):
-        state, _ = env.reset(seed=seed)
+        state, _ = env.reset()
         state = state.flatten()
         done = False
         episode_reward = 0.0
@@ -588,6 +588,8 @@ def train(config: Config, dataset_tuple: tuple):
     #d4rl_dataset = d4rl.qlearning_dataset(eval_env)
     with open(dataset_path, 'rb') as file:
         d4rl_dataset = dill.load(file)
+        
+    dataset_size = sum(d4rl_dataset['terminals'])
 
     if config.normalize_reward:
         modify_reward(d4rl_dataset, config.env_name)
@@ -624,7 +626,7 @@ def train(config: Config, dataset_tuple: tuple):
     )
     # saving config to the checkpoint
     if config.checkpoints_path is not None:
-        config.checkpoints_path = f'{config.checkpoints_path}/{dataset_optimality}_{config.name}'
+        config.checkpoints_path = f'{config.checkpoints_path}/{dataset_optimality}_{dataset_size}_{config.train_seed}_{config.name}'
         print(f"Checkpoints path: {config.checkpoints_path}")
         os.makedirs(config.checkpoints_path, exist_ok=True)
         # with open(os.path.join(config.checkpoints_path, f"config_{config.optimality}.yaml"), "w") as f:
@@ -728,6 +730,8 @@ def eval(config: Config, model_paths: dict, environments: List[str] = ["train", 
 
 @pyrallis.wrap()
 def eval_all_models(config: Config, model_dir: str):
+    config.eval_seed = int(model_dir.split('_')[-1]) + 10
+    set_seed(config.eval_seed, deterministic_torch=config.deterministic_torch)
     
     if 'suboptimal' in model_dir:
         dataset_quality = 'suboptimal'
@@ -751,8 +755,19 @@ def eval_all_models(config: Config, model_dir: str):
         current_steps = (x+1) * config.eval_every
         model_path = f'{model_dir}/model_{current_steps}.pt'
 
-
         all_rewards = []  # List to store results for each environment and evaluation
+        if current_steps == config.eval_every:
+            for env_name, eval_env in env_list.items():
+                all_rewards.append({
+                    "Algorithm": "SAC", 
+                    "Dataset": dataset_quality,
+                    "Environment": env_name,
+                    "Reward_mean": 0,
+                    "Reward_std": 0,
+                    "Steps": 0,
+                    "Seed": config.eval_seed,
+                })
+        
         
         for env_name, eval_env in env_list.items():
             num_actions = eval_env.action_space.n
@@ -777,8 +792,6 @@ def eval_all_models(config: Config, model_dir: str):
                 device=config.device,
             )
             
-            eval_seed = int(model_dir[-1:]) + 10
-            
             # Collect results
             all_rewards.append({
                 "Algorithm": "SAC", 
@@ -787,7 +800,7 @@ def eval_all_models(config: Config, model_dir: str):
                 "Reward_mean": np.mean(rewards),
                 "Reward_std": np.std(rewards),
                 "Steps": current_steps,
-                "Seed": eval_seed,
+                "Seed": config.eval_seed,
             })
     
     

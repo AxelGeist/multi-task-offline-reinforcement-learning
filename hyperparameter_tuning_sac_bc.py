@@ -8,10 +8,9 @@ from d3rlpy.dataset import MDPDataset
 import discrete_SAC_BC
 
 # Specify dataset
-dataset_quality = "optimal"
-dataset_size = "40"
-seed = "1"
-dataset_path = f"./datasets/{dataset_quality}_{dataset_size}x_{seed}.pkl"
+dataset_quality = "suboptimal"
+dataset_size = "80"
+dataset_path = f"./datasets/{dataset_quality}_{dataset_size}x.pkl"
 
 
 def objective(trial):
@@ -45,7 +44,7 @@ def objective(trial):
         discrete_SAC_BC.train(config=config, dataset_tuple=(dataset_quality, dataset_path))
 
         # Load Model
-        model_path = {"sac": f"{config.checkpoints_path}/{dataset_quality}_{n_steps}.pt"}
+        model_path = {"sac": f"{config.checkpoints_path}/model_{n_steps}.pt"}
 
         # Evaluate the model performance
         df_rewards_all_envs = discrete_SAC_BC.eval(config=config, model_paths=model_path, environments=["train"])
@@ -69,19 +68,19 @@ def optimize_sac_bc():
     storage_name = f"sqlite:///{study_name}_{dataset_quality}.db".format(study_name)
     study = optuna.create_study(direction='maximize', study_name=study_name, storage=storage_name, load_if_exists=True)
     # study = optuna.create_study(direction='maximize', study_name='sac_bc_tuning')  # Use 'minimize' for loss, 'maximize' for accuracy or other performance metrics
-    study.optimize(objective, n_trials=50)  # Number of trials to perform
+    # study.optimize(objective, n_trials=50)  # Number of trials to perform
 
     print("Best hyperparameters: ", study.best_trial.params) 
     print("Best value: ", study.best_trial.value)    
 
     fig = plot_optimization_history(study)
-    fig.update_layout(title=f"History: SAC+BC Tuning on {dataset_size}x {dataset_quality.capitalize()} ({dataset_pct}%) Dataset",)
+    fig.update_layout(title=f"History: SAC+BC Tuning on {dataset_size}x {dataset_quality.capitalize()} Dataset",)
     fig.write_image(f"results/tuning/{study_name}_{dataset_quality}_history.png") 
     fig = plot_rank(study)
-    fig.update_layout(title=f"Rank: SAC+BC Tuning on {dataset_size}x {dataset_quality.capitalize()} ({dataset_pct}%) Dataset",)
+    fig.update_layout(title=f"Rank: SAC+BC Tuning on {dataset_size}x {dataset_quality.capitalize()} Dataset",)
     fig.write_image(f"results/tuning/{study_name}_{dataset_quality}_rank.png")
     fig = plot_contour(study, params=[ "learning_rate", "n_steps", "beta"])
-    fig.update_layout(title=f"Contour: SAC+BC Tuning on {dataset_size}x {dataset_quality.capitalize()} ({dataset_pct}%) Dataset",)
+    fig.update_layout(title=f"Contour: SAC+BC Tuning on {dataset_size}x {dataset_quality.capitalize()} Dataset",)
     fig.write_image(f"results/tuning/{study_name}_{dataset_quality}_contour.png") 
 
     return study.best_trial.params

@@ -39,15 +39,17 @@ class Config:
     name: str = "BC"
     # training params
     env_name: str = "MiniGrid-FourRooms-v1"
-    n_steps: int = 3000 # TODO: 50k
-    n_steps_per_epoch: int = 500 # TODO: 1k
+    n_steps: int = 50000 # TODO: 50k
+    n_steps_per_epoch: int = 1000 # TODO: 1k
+    lr: int = 0.00028
+    batch_size: int = 128
     # evaluation params
     eval_episodes: int = 40
     # eval_every: int = 40
     # general params
     checkpoints_path: Optional[str] = None
     deterministic_torch: bool = False
-    train_seed: int = 1
+    train_seed: int = 10
     eval_seed: int = 11 # TODO: should differ from train_seed
     log_every: int = 100
     device: str = "cuda"
@@ -118,7 +120,9 @@ def initialize_envs():
 ############# TRAINING ################################################################
 
 @pyrallis.wrap()
-def train(config: Config, dataset_tuple: tuple):
+def train(config: Config, dataset_tuple: tuple, train_seed: int):
+    config.train_seed = train_seed
+    
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=config.train_seed)
     parser.add_argument("--gpu", type=int)
@@ -141,13 +145,13 @@ def train(config: Config, dataset_tuple: tuple):
 
 
     d3rlpy.seed(args.seed)
-    bc = d3rlpy.algos.DiscreteBCConfig().create(device=args.gpu)
+    bc = d3rlpy.algos.DiscreteBCConfig(learning_rate=config.lr, batch_size=config.batch_size).create(device=args.gpu)
 
     bc.fit(
         mdp_dataset,
         n_steps=config.n_steps,
         n_steps_per_epoch=config.n_steps_per_epoch, # for monitoring purposes,
-        experiment_name=f'{dataset_optimality}_{mdp_dataset.size()}_{config.train_seed}'
+        experiment_name=f'{dataset_optimality}_{mdp_dataset.size()}_{config.train_seed}',
     )
 
     # bc.save(f'./models/bc/BC_model_{dataset_optimality}.d3')
@@ -160,8 +164,8 @@ def evaluate_env(env, bc, config, env_name):
     # images = []
     
     for episode in range(config.eval_episodes):
-        obs, _ = env.reset(seed=config.eval_seed)
-        # obs, _ = env.reset()
+        # obs, _ = env.reset(seed=config.eval_seed)
+        obs, _ = env.reset()
         # img = env.render()
         done = False
         steps = 0
@@ -214,6 +218,8 @@ def eval(config: Config, model_path: str):
 
 @pyrallis.wrap()
 def eval_all_models(config: Config, model_dir: str):
+    config.eval_seed = int(model_dir.split('_')[-1]) + 10
+    
     
     if 'suboptimal' in model_dir:
         dataset_quality = 'suboptimal'
@@ -240,8 +246,18 @@ def eval_all_models(config: Config, model_dir: str):
         # evaluate
         all_rewards = []
         
-        eval_seed = int(model_dir[-1:]) + 10
-    
+        if current_steps == config.n_steps_per_epoch:
+            for env_name, eval_env in env_list.items():
+                all_rewards.append({
+                    "Algorithm": "BC", 
+                    "Dataset": dataset_quality,
+                    "Environment": env_name, 
+                    "Reward_mean": 0,
+                    "Reward_std": 0,
+                    "Steps": 0,
+                    "Seed": config.eval_seed,
+                })
+
         for env_name, eval_env in env_list.items():
             rewards = evaluate_env(eval_env, bc, config, env_name)
             all_rewards.append({
@@ -251,9 +267,9 @@ def eval_all_models(config: Config, model_dir: str):
                 "Reward_mean": np.mean(rewards),
                 "Reward_std": np.std(rewards),
                 "Steps": current_steps,
-                "Seed": eval_seed,
+                "Seed": config.eval_seed,
             })
-    
+
         df_rewards = pd.DataFrame(all_rewards)
         print(df_rewards)
         
@@ -303,16 +319,30 @@ def plot_rewards(df_rewards):
 
 
 if __name__ == "__main__":    
-    # train(("optimal", "./datasets/optimal_40x.pkl"))
+    
+    # train(("mixed", "./datasets/mixed_80x.pkl"), 10)
+    # train(("mixed", "./datasets/mixed_80x.pkl"), 11)
+    # train(("mixed", "./datasets/mixed_80x.pkl"), 12)
+    # train(("mixed", "./datasets/mixed_80x.pkl"), 13)
+    # train(("mixed", "./datasets/mixed_80x.pkl"), 14)
+
+
     # train(("suboptimal", "./datasets/suboptimal_80x.pkl"))
     # train(("mixed", "./datasets/mixed_80x.pkl"))
     
     # eval(model_path="d3rlpy_logs\optimal_40_1_20240608223223\model_1000.d3")
 
 
-    eval_all_models(model_dir="d3rlpy_logs\mixed_80_1_20240609033529")
+    # eval_all_models(model_dir="d3rlpy_logs\mixed_80_1_20240609033529")
     
-    # eval_all_models(model_dir="models/bc/optimal_1")
+    eval_all_models(model_dir="models/bc/mixed_80_10")
+    eval_all_models(model_dir="models/bc/mixed_80_11")
+    eval_all_models(model_dir="models/bc/mixed_80_12")
+    eval_all_models(model_dir="models/bc/mixed_80_13")
+    eval_all_models(model_dir="models/bc/mixed_80_14")
+
+
+
     # eval_all_models(model_dir="models/bc/optimal_2")
     # eval_all_models(model_dir="models/bc/suboptimal_1")
     # eval_all_models(model_dir="models/bc/suboptimal_2")
