@@ -37,22 +37,22 @@ class Config:
     # model params
     hidden_dim: int = 256
     num_critics: int = 2 # defines the N in SAC-N
-    gamma: float = 0.99
+    gamma: float = 0.96
     tau: float = 5e-3
-    actor_learning_rate: float = 3e-4
-    critic_learning_rate: float = 3e-4
-    alpha_learning_rate: float = 3e-4
+    actor_learning_rate: float = 0.00023
+    critic_learning_rate: float = 0.00023
+    alpha_learning_rate: float = 0.00023
     max_action: float = 1.0
     # training params
     buffer_size: int = 1_000_000
     env_name: str = "MiniGrid-FourRooms-v1"
     batch_size: int = 256
-    num_epochs: int = 20
+    num_epochs: int = 5000
     num_updates_on_epoch: int = 10
     normalize_reward: bool = False
     # evaluation params
     eval_episodes: int = 40 # there are 40 tasks in each test_config
-    eval_every: int = 50
+    eval_every: int = 1000
     # general params
     checkpoints_path: Optional[str] = "./models/sac"
     deterministic_torch: bool = False
@@ -565,7 +565,8 @@ def modify_reward(dataset, env_name, max_episode_steps=1000):
 
 
 @pyrallis.wrap()
-def train(config: Config, dataset_tuple: tuple):
+def train(config: Config, dataset_tuple: tuple, train_seed: int):
+    config.train_seed = train_seed
     set_seed(config.train_seed, deterministic_torch=config.deterministic_torch)
     # wandb_init(asdict(config))
     
@@ -847,5 +848,26 @@ if __name__ == "__main__":
     # eval_all_models(model_dir="models\sac\SAC-N-MiniGrid-FourRooms-v1-4e782860")
     # eval(model_paths=model_paths)
     # train(dataset_tuple=("optimal", "./datasets/optimal_40x.pkl"))
-    train(dataset_tuple=("suboptimal", "./datasets/suboptimal_80x.pkl"))
+    # train(dataset_tuple=("suboptimal", "./datasets/suboptimal_80x.pkl"))
+    
+    
+    # eval_all_models(model_dir='models\sac\optimal_40_10')
+    # eval_all_models(model_dir='models\sac\optimal_40_11')
+    # eval_all_models(model_dir='models\sac\optimal_40_12')
+    # eval_all_models(model_dir='models\sac\optimal_40_13')
+    # eval_all_models(model_dir='models\sac\optimal_40_14')
+    
+    eval_all_models(model_dir='models\sac\suboptimal_80_10')
+    eval_all_models(model_dir='models\sac\suboptimal_80_11')
+    eval_all_models(model_dir='models\sac\suboptimal_80_12')
+    eval_all_models(model_dir='models\sac\suboptimal_80_13')
+    eval_all_models(model_dir='models\sac\suboptimal_80_14')
+    
+    eval_all_models(model_dir='models\sac\mixed_80_10')
+    eval_all_models(model_dir='models\sac\mixed_80_11')
+    eval_all_models(model_dir='models\sac\mixed_80_12')
+    eval_all_models(model_dir='models\sac\mixed_80_13')
+    eval_all_models(model_dir='models\sac\mixed_80_14')
+
+
 

@@ -126,9 +126,9 @@ def plotLearningCurve(dataset_quality: str, algorithm: str):
 ## 80x Suboptimal dataset - BC (Train, Test100, Test0) vs. SAC+BC (Train, Test100, Test0) vs. SAC (Train, Test100, Test0)
 ## 80x Mixed dataset - BC (Train, Test100, Test0) vs. SAC+BC (Train, Test100, Test0) vs. SAC (Train, Test100, Test0)
 
-def plotGeneralizationGraph(dataset_quality: str):
+def plotGeneralizationGraph(dataset_quality: str, training_steps: int):
     # TODO: add 15 links (5 for each algorithms results, since 5 seeds)
-    
+        
     if dataset_quality == 'optimal':
         dataset_average = 1.0
         dataset_size = "40"
@@ -141,27 +141,28 @@ def plotGeneralizationGraph(dataset_quality: str):
         
     df = merge_all_results(
     [
-        f'models/bc/{dataset_quality}_1/results.csv', 
-        f'models/bc/{dataset_quality}_2/results.csv', 
-        f'models/bc/{dataset_quality}_3/results.csv', 
-        f'models/bc/{dataset_quality}_4/results.csv', 
-        f'models/bc/{dataset_quality}_5/results.csv', 
-        
-        f'models\sac_bc\{dataset_quality}_1/results.csv',
-        f'models\sac_bc\{dataset_quality}_2/results.csv',
-        f'models\sac_bc\{dataset_quality}_3/results.csv',
-        f'models\sac_bc\{dataset_quality}_4/results.csv',
-        f'models\sac_bc\{dataset_quality}_5/results.csv',
-        
-        f'models\sac\{dataset_quality}_1/results.csv',
-        f'models\sac\{dataset_quality}_2/results.csv',
-        f'models\sac\{dataset_quality}_3/results.csv',
-        f'models\sac\{dataset_quality}_4/results.csv',
-        f'models\sac\{dataset_quality}_5/results.csv',
+        f'models/bc/{dataset_quality}_{dataset_size}_10/results.csv', 
+        f'models/bc/{dataset_quality}_{dataset_size}_11/results.csv', 
+        f'models/bc/{dataset_quality}_{dataset_size}_12/results.csv', 
+        f'models/bc/{dataset_quality}_{dataset_size}_13/results.csv', 
+        f'models/bc/{dataset_quality}_{dataset_size}_14/results.csv', 
+
+        f'models\sac_bc\{dataset_quality}_{dataset_size}_10/results.csv',
+        f'models\sac_bc\{dataset_quality}_{dataset_size}_11/results.csv',
+        f'models\sac_bc\{dataset_quality}_{dataset_size}_12/results.csv',
+        f'models\sac_bc\{dataset_quality}_{dataset_size}_13/results.csv',
+        f'models\sac_bc\{dataset_quality}_{dataset_size}_14/results.csv',
+
+        f'models\sac\{dataset_quality}_{dataset_size}_10/results.csv',
+        f'models\sac\{dataset_quality}_{dataset_size}_11/results.csv',
+        f'models\sac\{dataset_quality}_{dataset_size}_12/results.csv',
+        f'models\sac\{dataset_quality}_{dataset_size}_13/results.csv',
+        f'models\sac\{dataset_quality}_{dataset_size}_14/results.csv',
+
     ])
     
     # Filter the data for steps
-    df_step = df[df['Steps'] == 200]
+    df_step = df[df['Steps'] == training_steps]
 
     # Compute the average of Reward_mean for each algorithm
     reward_mean_avg_env = df_step.groupby(['Algorithm', 'Environment'])['Reward_mean'].mean()
@@ -175,7 +176,7 @@ def plotGeneralizationGraph(dataset_quality: str):
     fig, ax = plt.subplots(figsize=(8, 6))
     reward_mean_avg_env.plot(kind='bar', yerr=reward_mean_std, capsize=4, ax=ax,
         color=['skyblue', 'lightgreen', 'salmon'])
-    ax.set_title(f'{dataset_quality.capitalize()} Dataset with {dataset_size} Transitions - 25k Training Steps')
+    ax.set_title(f'{dataset_quality.capitalize()} Dataset with {dataset_size} Transitions - {int(training_steps / 1000)}k Training Steps')
     ax.set_ylabel('Reward Mean')
     ax.set_xlabel('')
     ax.set_xticks(range(len(reward_mean_avg_env.index)))
@@ -386,8 +387,8 @@ def main():
     
     
     # results
-    plotLearningCurve(dataset_quality='optimal', algorithm = 'sac_bc')    
-    # plotGeneralizationGraph(dataset_quality = 'suboptimal')
+    # plotLearningCurve(dataset_quality='mixed', algorithm = 'sac')    
+    plotGeneralizationGraph(dataset_quality = 'mixed', training_steps = 50000)
     
 
 if __name__ == "__main__":

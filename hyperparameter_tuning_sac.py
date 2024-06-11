@@ -8,8 +8,8 @@ from d3rlpy.dataset import MDPDataset
 import discrete_SAC
 
 # Specify dataset
-dataset_quality = "optimal"
-dataset_size = "40"
+dataset_quality = "mixed"
+dataset_size = "80"
 dataset_path = f"./datasets/{dataset_quality}_{dataset_size}x.pkl"
 
 
@@ -22,7 +22,7 @@ def objective(trial):
     # 500 to 5000 with 500 steps used
     n_steps = trial.suggest_int(name='n_steps', low=15000, high=30000, step=1000)
     learning_rate = trial.suggest_loguniform(name='learning_rate', low=1e-4, high=3e-4)
-    gamma = trial.suggest_float(name='beta', low=0.95, high=0.99, step=0.01)
+    gamma = trial.suggest_float(name='gamma', low=0.95, high=0.99, step=0.01)
 
     # Update Config
     config.num_epochs = int(n_steps / config.num_updates_on_epoch)
@@ -78,7 +78,7 @@ def optimize_sac():
     fig = plot_rank(study)
     fig.update_layout(title=f"Rank: SAC Tuning on {dataset_size}x {dataset_quality.capitalize()} Dataset",)
     fig.write_image(f"results/tuning/{study_name}_{dataset_quality}_rank.png")
-    fig = plot_contour(study, params=[ "learning_rate", "n_steps", "beta"])
+    fig = plot_contour(study, params=[ "learning_rate", "n_steps", "gamma"])
     fig.update_layout(title=f"Contour: SAC Tuning on {dataset_size}x {dataset_quality.capitalize()} Dataset",)
     fig.write_image(f"results/tuning/{study_name}_{dataset_quality}_contour.png") 
 

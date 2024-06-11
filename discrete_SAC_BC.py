@@ -867,7 +867,7 @@ if __name__ == "__main__":
     # train(("optimal", "./datasets/optimal_40x.pkl"))
     # train(("suboptimal", "./datasets/suboptimal_80x.pkl"))
     
-    train(("suboptimal", "./datasets/suboptimal_80x.pkl"), 10)
+    # train(("suboptimal", "./datasets/suboptimal_80x.pkl"), 10)
     # train(("mixed", "./datasets/mixed_80x.pkl"), 11)
     # train(("mixed", "./datasets/mixed_80x.pkl"), 12)
     # train(("mixed", "./datasets/mixed_80x.pkl"), 13)
@@ -875,11 +875,13 @@ if __name__ == "__main__":
 
 
     
-    # eval_all_models(model_dir='models\sac_bc\optimal_40_10')
-    # eval_all_models(model_dir='models\sac_bc\optimal_40_11')
-    # eval_all_models(model_dir='models\sac_bc\optimal_40_12')
-    # eval_all_models(model_dir='models\sac_bc\optimal_40_13')
-    # eval_all_models(model_dir='models\sac_bc\optimal_40_14')
+    eval_all_models(model_dir='models\sac_bc\mixed_80_10')
+    eval_all_models(model_dir='models\sac_bc\mixed_80_11')
+    eval_all_models(model_dir='models\sac_bc\mixed_80_12')
+    eval_all_models(model_dir='models\sac_bc\mixed_80_13')
+    eval_all_models(model_dir='models\sac_bc\mixed_80_14')
+
+
 
 
 
