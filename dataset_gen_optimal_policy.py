@@ -11,8 +11,6 @@ from four_room.wrappers import gym_wrapper
 from four_room.shortest_path import find_all_action_values
 from four_room.utils import obs_to_state
 
-seed = 9999
-
 # Create and register a custom environment
 gym.register('MiniGrid-FourRooms-v1', entry_point=FourRoomsEnv)
 
@@ -46,7 +44,7 @@ def generate_dataset():
     # Instantiate the agent
     agent = OptimalAgent()
 
-    num_episodes = 40 # use 40 as we have 40 mazes, else we have duplicates. Only if it is not optimal we should have more than 40 
+    num_episodes = 400 # use 40 as we have 40 mazes, else we have duplicates. Only if it is not optimal we should have more than 40 
     dataset = { # replay buffer in the D4RL format
         'observations': [],
         'actions': [],
@@ -93,7 +91,7 @@ def generate_dataset():
     # Save the dataset to a file
     # policy = os.path.basename(__file__)[:-3]
     # date_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f'datasets/optimal_{num_episodes}x_{seed}.pkl'
+    filename = f'datasets/optimal_{num_episodes}x.pkl'
     with open(filename, 'wb') as f:
         pickle.dump(dataset, f)
 

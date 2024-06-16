@@ -41,20 +41,20 @@ class Config:
     beta: float = 1.0 # determines trade-off of the BC term
     gamma: float = 0.99
     tau: float = 5e-3
-    actor_learning_rate: float = 0.00023
-    critic_learning_rate: float = 0.00023
-    alpha_learning_rate: float = 0.00023
+    actor_learning_rate: float = 0.0003
+    critic_learning_rate: float = 0.0003
+    alpha_learning_rate: float = 0.0003
     max_action: float = 1.0
     # training params
     buffer_size: int = 1_000_000
     env_name: str = "MiniGrfid-FourRooms-v1"
     batch_size: int = 256
-    num_epochs: int = 5000
+    num_epochs: int = 2000
     num_updates_on_epoch: int = 10
     normalize_reward: bool = False
     # evaluation params
     eval_episodes: int = 40 # there are 40 tasks in each test_config
-    eval_every: int = 1000
+    eval_every: int = 20000
     # general params
     checkpoints_path: Optional[str] = "./models/sac_bc"
     deterministic_torch: bool = False
@@ -747,6 +747,7 @@ def eval(config: Config, model_paths: dict, environments: List[str] = ["train", 
 
 @pyrallis.wrap()
 def eval_all_models(config: Config, model_dir: str):
+    dataset_size = model_dir.split('_')[-2]
     config.eval_seed = int(model_dir.split('_')[-1]) + 10
     set_seed(config.eval_seed, deterministic_torch=config.deterministic_torch)
     
@@ -781,6 +782,7 @@ def eval_all_models(config: Config, model_dir: str):
                 all_rewards.append({
                     "Algorithm": "SAC+BC", 
                     "Dataset": dataset_quality,
+                    "Size": dataset_size,
                     "Environment": env_name,
                     "Reward_mean": 0,
                     "Reward_std": 0,
@@ -816,6 +818,7 @@ def eval_all_models(config: Config, model_dir: str):
             all_rewards.append({
                 "Algorithm": "SAC+BC", 
                 "Dataset": dataset_quality,
+                "Size": dataset_size,
                 "Environment": env_name,
                 "Reward_mean": np.mean(rewards),
                 "Reward_std": np.std(rewards),
@@ -867,19 +870,56 @@ if __name__ == "__main__":
     # train(("optimal", "./datasets/optimal_40x.pkl"))
     # train(("suboptimal", "./datasets/suboptimal_80x.pkl"))
     
-    # train(("suboptimal", "./datasets/suboptimal_80x.pkl"), 10)
+    # train(("mixed", "./datasets/mixed_80x.pkl"), 10)
     # train(("mixed", "./datasets/mixed_80x.pkl"), 11)
     # train(("mixed", "./datasets/mixed_80x.pkl"), 12)
     # train(("mixed", "./datasets/mixed_80x.pkl"), 13)
     # train(("mixed", "./datasets/mixed_80x.pkl"), 14)
 
 
+
+    # eval_all_models(model_dir='models\sac_bc\mixed_80_x_10')
+    # eval_all_models(model_dir='models\sac_bc\mixed_80_x_11')
+    # eval_all_models(model_dir='models\sac_bc\mixed_80_x_12')
+    # eval_all_models(model_dir='models\sac_bc\mixed_80_x_13')
+    # eval_all_models(model_dir='models\sac_bc\mixed_80_x_14')
     
-    eval_all_models(model_dir='models\sac_bc\mixed_80_10')
-    eval_all_models(model_dir='models\sac_bc\mixed_80_11')
-    eval_all_models(model_dir='models\sac_bc\mixed_80_12')
-    eval_all_models(model_dir='models\sac_bc\mixed_80_13')
-    eval_all_models(model_dir='models\sac_bc\mixed_80_14')
+    # train(("optimal", "./datasets/optimal_80x.pkl"), 10)
+    # train(("optimal", "./datasets/optimal_80x.pkl"), 11)
+    # train(("optimal", "./datasets/optimal_80x.pkl"), 12)
+    # train(("optimal", "./datasets/optimal_80x.pkl"), 13)
+    # train(("optimal", "./datasets/optimal_80x.pkl"), 14)
+    
+    # train(("optimal", "./datasets/optimal_200x.pkl"), 10)
+    # train(("optimal", "./datasets/optimal_200x.pkl"), 11)
+    # train(("optimal", "./datasets/optimal_200x.pkl"), 12)
+    # train(("optimal", "./datasets/optimal_200x.pkl"), 13)
+    # train(("optimal", "./datasets/optimal_200x.pkl"), 14)
+    
+    # train(("optimal", "./datasets/optimal_400x.pkl"), 10)
+    # train(("optimal", "./datasets/optimal_400x.pkl"), 11)
+    # train(("optimal", "./datasets/optimal_400x.pkl"), 12)
+    # train(("optimal", "./datasets/optimal_400x.pkl"), 13)
+    # train(("optimal", "./datasets/optimal_400x.pkl"), 14)
+    
+    
+    eval_all_models(model_dir="models/sac_bc/optimal_80_10")
+    eval_all_models(model_dir="models/sac_bc/optimal_80_11")
+    eval_all_models(model_dir="models/sac_bc/optimal_80_12")
+    eval_all_models(model_dir="models/sac_bc/optimal_80_13")
+    eval_all_models(model_dir="models/sac_bc/optimal_80_14")
+    
+    eval_all_models(model_dir="models/sac_bc/optimal_200_10")
+    eval_all_models(model_dir="models/sac_bc/optimal_200_11")
+    eval_all_models(model_dir="models/sac_bc/optimal_200_12")
+    eval_all_models(model_dir="models/sac_bc/optimal_200_13")
+    eval_all_models(model_dir="models/sac_bc/optimal_200_14")
+    
+    eval_all_models(model_dir="models/sac_bc/optimal_400_10")
+    eval_all_models(model_dir="models/sac_bc/optimal_400_11")
+    eval_all_models(model_dir="models/sac_bc/optimal_400_12")
+    eval_all_models(model_dir="models/sac_bc/optimal_400_13")
+    eval_all_models(model_dir="models/sac_bc/optimal_400_14")
 
 
 

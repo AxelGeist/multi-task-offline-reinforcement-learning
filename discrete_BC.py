@@ -39,8 +39,8 @@ class Config:
     name: str = "BC"
     # training params
     env_name: str = "MiniGrid-FourRooms-v1"
-    n_steps: int = 50000 # TODO: 50k
-    n_steps_per_epoch: int = 1000 # TODO: 1k
+    n_steps: int = 20000 # TODO: 50k
+    n_steps_per_epoch: int = 20000 # TODO: 1k
     lr: int = 0.00028
     batch_size: int = 128
     # evaluation params
@@ -219,7 +219,7 @@ def eval(config: Config, model_path: str):
 @pyrallis.wrap()
 def eval_all_models(config: Config, model_dir: str):
     config.eval_seed = int(model_dir.split('_')[-1]) + 10
-    
+    dataset_size = model_dir.split('_')[-2]
     
     if 'suboptimal' in model_dir:
         dataset_quality = 'suboptimal'
@@ -251,6 +251,7 @@ def eval_all_models(config: Config, model_dir: str):
                 all_rewards.append({
                     "Algorithm": "BC", 
                     "Dataset": dataset_quality,
+                    "Size": dataset_size,
                     "Environment": env_name, 
                     "Reward_mean": 0,
                     "Reward_std": 0,
@@ -263,6 +264,7 @@ def eval_all_models(config: Config, model_dir: str):
             all_rewards.append({
                 "Algorithm": "BC", 
                 "Dataset": dataset_quality,
+                "Size": dataset_size,
                 "Environment": env_name, 
                 "Reward_mean": np.mean(rewards),
                 "Reward_std": np.std(rewards),
@@ -320,11 +322,45 @@ def plot_rewards(df_rewards):
 
 if __name__ == "__main__":    
     
-    # train(("mixed", "./datasets/mixed_80x.pkl"), 10)
-    # train(("mixed", "./datasets/mixed_80x.pkl"), 11)
-    # train(("mixed", "./datasets/mixed_80x.pkl"), 12)
-    # train(("mixed", "./datasets/mixed_80x.pkl"), 13)
-    # train(("mixed", "./datasets/mixed_80x.pkl"), 14)
+    
+    # train(("mixed", "./datasets/mixed_40x.pkl"), 10)
+    # train(("mixed", "./datasets/mixed_40x.pkl"), 11)
+    # train(("mixed", "./datasets/mixed_40x.pkl"), 12)
+    # train(("mixed", "./datasets/mixed_40x.pkl"), 13)
+    # train(("mixed", "./datasets/mixed_40x.pkl"), 14)
+    
+    # train(("mixed", "./datasets/mixed_200x.pkl"), 10)
+    # train(("mixed", "./datasets/mixed_200x.pkl"), 11)
+    # train(("mixed", "./datasets/mixed_200x.pkl"), 12)
+    # train(("mixed", "./datasets/mixed_200x.pkl"), 13)
+    # train(("mixed", "./datasets/mixed_200x.pkl"), 14)
+    
+    # train(("mixed", "./datasets/mixed_400x.pkl"), 10)
+    # train(("mixed", "./datasets/mixed_400x.pkl"), 11)
+    # train(("mixed", "./datasets/mixed_400x.pkl"), 12)
+    # train(("mixed", "./datasets/mixed_400x.pkl"), 13)
+    # train(("mixed", "./datasets/mixed_400x.pkl"), 14)
+
+    eval_all_models(model_dir="models/bc/optimal_80_10")
+    eval_all_models(model_dir="models/bc/optimal_80_11")
+    eval_all_models(model_dir="models/bc/optimal_80_12")
+    eval_all_models(model_dir="models/bc/optimal_80_13")
+    eval_all_models(model_dir="models/bc/optimal_80_14")
+    
+    eval_all_models(model_dir="models/bc/optimal_200_10")
+    eval_all_models(model_dir="models/bc/optimal_200_11")
+    eval_all_models(model_dir="models/bc/optimal_200_12")
+    eval_all_models(model_dir="models/bc/optimal_200_13")
+    eval_all_models(model_dir="models/bc/optimal_200_14")
+    
+    eval_all_models(model_dir="models/bc/optimal_400_10")
+    eval_all_models(model_dir="models/bc/optimal_400_11")
+    eval_all_models(model_dir="models/bc/optimal_400_12")
+    eval_all_models(model_dir="models/bc/optimal_400_13")
+    eval_all_models(model_dir="models/bc/optimal_400_14")
+
+
+
 
 
     # train(("suboptimal", "./datasets/suboptimal_80x.pkl"))
@@ -333,13 +369,13 @@ if __name__ == "__main__":
     # eval(model_path="d3rlpy_logs\optimal_40_1_20240608223223\model_1000.d3")
 
 
-    # eval_all_models(model_dir="d3rlpy_logs\mixed_80_1_20240609033529")
+    # eval_all_models(model_dir="d3rlpy_logs\mixed_80_10_20240611155917")
     
-    eval_all_models(model_dir="models/bc/mixed_80_10")
-    eval_all_models(model_dir="models/bc/mixed_80_11")
-    eval_all_models(model_dir="models/bc/mixed_80_12")
-    eval_all_models(model_dir="models/bc/mixed_80_13")
-    eval_all_models(model_dir="models/bc/mixed_80_14")
+    # eval_all_models(model_dir="models/bc/mixed_80_10")
+    # eval_all_models(model_dir="models/bc/mixed_80_11")
+    # eval_all_models(model_dir="models/bc/mixed_80_12")
+    # eval_all_models(model_dir="models/bc/mixed_80_13")
+    # eval_all_models(model_dir="models/bc/mixed_80_14")
 
 
 

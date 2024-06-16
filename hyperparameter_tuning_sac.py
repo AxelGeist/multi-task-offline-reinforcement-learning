@@ -61,7 +61,7 @@ def objective(trial):
 
 
 
-from optuna.visualization import plot_optimization_history, plot_contour, plot_rank
+from optuna.visualization import plot_optimization_history, plot_contour, plot_rank, plot_param_importances
 
 def optimize_sac():
     study_name = "tuning_sac"  # Unique identifier of the study.
@@ -81,6 +81,7 @@ def optimize_sac():
     fig = plot_contour(study, params=[ "learning_rate", "n_steps", "gamma"])
     fig.update_layout(title=f"Contour: SAC Tuning on {dataset_size}x {dataset_quality.capitalize()} Dataset",)
     fig.write_image(f"results/tuning/{study_name}_{dataset_quality}_contour.png") 
+
 
     return study.best_trial.params
 

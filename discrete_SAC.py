@@ -37,11 +37,11 @@ class Config:
     # model params
     hidden_dim: int = 256
     num_critics: int = 2 # defines the N in SAC-N
-    gamma: float = 0.96
+    gamma: float = 0.95
     tau: float = 5e-3
-    actor_learning_rate: float = 0.00023
-    critic_learning_rate: float = 0.00023
-    alpha_learning_rate: float = 0.00023
+    actor_learning_rate: float = 0.00026
+    critic_learning_rate: float = 0.00026
+    alpha_learning_rate: float = 0.00026
     max_action: float = 1.0
     # training params
     buffer_size: int = 1_000_000
@@ -52,7 +52,7 @@ class Config:
     normalize_reward: bool = False
     # evaluation params
     eval_episodes: int = 40 # there are 40 tasks in each test_config
-    eval_every: int = 1000
+    eval_every: int = 50000
     # general params
     checkpoints_path: Optional[str] = "./models/sac"
     deterministic_torch: bool = False
@@ -731,6 +731,7 @@ def eval(config: Config, model_paths: dict, environments: List[str] = ["train", 
 
 @pyrallis.wrap()
 def eval_all_models(config: Config, model_dir: str):
+    dataset_size = model_dir.split('_')[-2]
     config.eval_seed = int(model_dir.split('_')[-1]) + 10
     set_seed(config.eval_seed, deterministic_torch=config.deterministic_torch)
     
@@ -762,6 +763,7 @@ def eval_all_models(config: Config, model_dir: str):
                 all_rewards.append({
                     "Algorithm": "SAC", 
                     "Dataset": dataset_quality,
+                    "Size": dataset_size,
                     "Environment": env_name,
                     "Reward_mean": 0,
                     "Reward_std": 0,
@@ -797,6 +799,7 @@ def eval_all_models(config: Config, model_dir: str):
             all_rewards.append({
                 "Algorithm": "SAC", 
                 "Dataset": dataset_quality,
+                "Size": dataset_size,
                 "Environment": env_name,
                 "Reward_mean": np.mean(rewards),
                 "Reward_std": np.std(rewards),
@@ -857,17 +860,53 @@ if __name__ == "__main__":
     # eval_all_models(model_dir='models\sac\optimal_40_13')
     # eval_all_models(model_dir='models\sac\optimal_40_14')
     
-    eval_all_models(model_dir='models\sac\suboptimal_80_10')
-    eval_all_models(model_dir='models\sac\suboptimal_80_11')
-    eval_all_models(model_dir='models\sac\suboptimal_80_12')
-    eval_all_models(model_dir='models\sac\suboptimal_80_13')
-    eval_all_models(model_dir='models\sac\suboptimal_80_14')
+    # eval_all_models(model_dir='models\sac\suboptimal_80_10')
+    # eval_all_models(model_dir='models\sac\suboptimal_80_11')
+    # eval_all_models(model_dir='models\sac\suboptimal_80_12')
+    # eval_all_models(model_dir='models\sac\suboptimal_80_13')
+    # eval_all_models(model_dir='models\sac\suboptimal_80_14')
     
-    eval_all_models(model_dir='models\sac\mixed_80_10')
-    eval_all_models(model_dir='models\sac\mixed_80_11')
-    eval_all_models(model_dir='models\sac\mixed_80_12')
-    eval_all_models(model_dir='models\sac\mixed_80_13')
-    eval_all_models(model_dir='models\sac\mixed_80_14')
+    # eval_all_models(model_dir='models\sac\mixed_80_10')
+    # eval_all_models(model_dir='models\sac\mixed_80_11')
+    # eval_all_models(model_dir='models\sac\mixed_80_12')
+    # eval_all_models(model_dir='models\sac\mixed_80_13')
+    # eval_all_models(model_dir='models\sac\mixed_80_14')
+    
+    # train(("suboptimal", "./datasets/suboptimal_40x.pkl"), 10)
+    # train(("suboptimal", "./datasets/suboptimal_40x.pkl"), 11)
+    # train(("suboptimal", "./datasets/suboptimal_40x.pkl"), 12)
+    # train(("suboptimal", "./datasets/suboptimal_40x.pkl"), 13)
+    # train(("suboptimal", "./datasets/suboptimal_40x.pkl"), 14)
+    
+    # train(("suboptimal", "./datasets/suboptimal_200x.pkl"), 10)
+    # train(("suboptimal", "./datasets/suboptimal_200x.pkl"), 11)
+    # train(("suboptimal", "./datasets/suboptimal_200x.pkl"), 12)
+    # train(("suboptimal", "./datasets/suboptimal_200x.pkl"), 13)
+    # train(("suboptimal", "./datasets/suboptimal_200x.pkl"), 14)
+    
+    # train(("suboptimal", "./datasets/suboptimal_400x.pkl"), 10)
+    # train(("suboptimal", "./datasets/suboptimal_400x.pkl"), 11)
+    # train(("suboptimal", "./datasets/suboptimal_400x.pkl"), 12)
+    # train(("suboptimal", "./datasets/suboptimal_400x.pkl"), 13)
+    # train(("suboptimal", "./datasets/suboptimal_400x.pkl"), 14)
+    
+    eval_all_models(model_dir="models/sac/mixed_40_10")
+    eval_all_models(model_dir="models/sac/mixed_40_11")
+    eval_all_models(model_dir="models/sac/mixed_40_12")
+    eval_all_models(model_dir="models/sac/mixed_40_13")
+    eval_all_models(model_dir="models/sac/mixed_40_14")
+    
+    eval_all_models(model_dir="models/sac/mixed_200_10")
+    eval_all_models(model_dir="models/sac/mixed_200_11")
+    eval_all_models(model_dir="models/sac/mixed_200_12")
+    eval_all_models(model_dir="models/sac/mixed_200_13")
+    eval_all_models(model_dir="models/sac/mixed_200_14")
+    
+    eval_all_models(model_dir="models/sac/mixed_400_10")
+    eval_all_models(model_dir="models/sac/mixed_400_11")
+    eval_all_models(model_dir="models/sac/mixed_400_12")
+    eval_all_models(model_dir="models/sac/mixed_400_13")
+    eval_all_models(model_dir="models/sac/mixed_400_14")
 
 
 

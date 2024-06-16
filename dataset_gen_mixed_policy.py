@@ -94,7 +94,7 @@ def generate_dataset():
     # Save the dataset to a file
     # policy = os.path.basename(__file__)[12:-3]
     # date_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f'datasets/mixed_{num_episodes}x_{seed}.pkl'
+    filename = f'datasets/mixed_{num_episodes}x.pkl'
     with open(filename, 'wb') as f:
         pickle.dump(dataset, f)
 

@@ -38,7 +38,7 @@ env = gym_wrapper(gym.make('MiniGrid-FourRooms-v1',
 def generate_dataset():
 
     # use 80 to 400 episodes, depending on the success rate of the suboptimal model -> better model = less episodes
-    num_episodes = 80
+    num_episodes = 40
     dataset = { # replay buffer in the D4RL format
         'observations': [],
         'actions': [],
@@ -84,7 +84,7 @@ def generate_dataset():
     # Save the dataset to a file
     # policy = os.path.basename(__file__)[:-3]
     # date_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f'datasets/suboptimal_{num_episodes}x_{seed}.pkl'
+    filename = f'datasets/suboptimal_{num_episodes}x.pkl'
     with open(filename, 'wb') as f:
         pickle.dump(dataset, f)
 

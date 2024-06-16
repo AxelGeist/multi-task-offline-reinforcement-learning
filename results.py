@@ -34,8 +34,27 @@ from d3rlpy.algos import DiscreteBCConfig, DiscreteBC
 from d3rlpy.metrics import TDErrorEvaluator
 from d3rlpy.metrics import EnvironmentEvaluator
 from d3rlpy.dataset import MDPDataset
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import colorsys
 
 
+# Function to adjust color lightness
+def adjust_color_lightness(color, amount=0.5):
+    """
+    Adjusts the lightness of a given color.
+    `color` should be a matplotlib color string.
+    `amount` > 1 makes the color lighter, < 1 makes it darker.
+    """
+    try:
+        c = mcolors.cnames[color]
+    except:
+        c = color
+    c = mcolors.to_rgb(c)
+    h, l, s = colorsys.rgb_to_hls(*c)
+    new_l = max(0, min(1, l * amount))
+    r, g, b = colorsys.hls_to_rgb(h, new_l, s)
+    return mcolors.to_hex((r, g, b))
 
 # 0. Learning Curve of BC, SAC, SAC+BC in different Environments & Datasets -> 5 seeds
 ## BC on optimal dataset over 50k training steps 
@@ -191,13 +210,83 @@ def plotGeneralizationGraph(dataset_quality: str, training_steps: int):
     
     plt.savefig(f'results/generalization_{dataset_quality}')
     # plt.show()
-    
 
 
 
-# 2. Data Diversity Graphs -> not possible, since I dont have enough training levels (hundreds of different datasets)
+# X. Data Diversity Graphs -> not possible, since I dont have enough training levels (hundreds of different datasets)
 ## Number of training levels X to X - SAC+BC (Train, Test100, Test0)
 ## Number of training levels X to X- BC (Train, Test100, Test0)
+
+
+# 2. Training & Testing on the Same Environment
+
+def plotTrainingEnvironmentGraph(training_steps: int):
+    
+    df = pd.DataFrame()
+
+    for dataset_quality in ['optimal', 'suboptimal', 'mixed']:
+        if dataset_quality == 'optimal':
+            dataset_size = "40"
+        elif dataset_quality == 'suboptimal':
+            dataset_size = "80"
+        elif dataset_quality == 'mixed':
+            dataset_size = "80"
+            
+        for algorithm in ['bc', 'sac', 'sac_bc']:
+                
+            new_df = merge_all_results(
+                [
+                    f'models/{algorithm}/{dataset_quality}_{dataset_size}_10/results.csv', 
+                    f'models/{algorithm}/{dataset_quality}_{dataset_size}_11/results.csv', 
+                    f'models/{algorithm}/{dataset_quality}_{dataset_size}_12/results.csv', 
+                    f'models/{algorithm}/{dataset_quality}_{dataset_size}_13/results.csv', 
+                    f'models/{algorithm}/{dataset_quality}_{dataset_size}_14/results.csv', 
+                ])
+            
+            df = pd.concat([df, new_df])
+
+    # Filter the data for steps
+    df_step = df[df['Steps'] == training_steps]
+
+    # Filter the environment
+    df_train = df_step[df_step['Environment'] == 'Train']
+
+    # Compute the average and standard deviation of Reward_mean for each combination of Algorithm and Dataset
+    reward_mean_avg_env = df_train.groupby(['Algorithm', 'Dataset'])['Reward_mean'].mean().unstack()
+    reward_mean_std = df_train.groupby(['Algorithm', 'Dataset'])['Reward_mean'].std().unstack()
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    reward_mean_avg_env.T.plot(kind='bar', yerr=reward_mean_std.T, capsize=4, ax=ax,
+        color=['skyblue', 'lightgreen', 'salmon'])
+
+    ax.set_title(f'Training & Testing on the Same Environment - {int(training_steps / 1000)}k Training Steps')
+    ax.set_ylabel('Reward Mean')
+    ax.set_xlabel('')
+    plt.xticks(rotation=0)
+    ax.set_xticklabels([label.get_text().capitalize() for label in ax.get_xticklabels()])
+
+    
+    # ax.set_xticks(range(len(reward_mean_avg_env.index)))
+    # ax.set_xticklabels(reward_mean_avg_env.index, rotation=0)
+    ax.legend(title='Algorithm')
+    ax.grid(axis='y', linestyle='--', alpha=0.7)
+    ax.set_ylim(0, 1.005)
+
+    ax.axhline(y=1.0, color='r', linestyle='--', linewidth=2, label=f'Optimal Dataset Average')
+    ax.axhline(y=1.0, color='r', linestyle='--', linewidth=2, label=f'Mixed Dataset Average')
+    ax.axhline(y=0.5, color='blue', linestyle='--', linewidth=2, label=f'Suboptimal Dataset Average')
+    ax.legend()  # Update legend to include the new line
+
+    plt.savefig(f'results/training_environment/train_env_{training_steps}')
+    # plt.show()
+
+
+
+
+
+
 
 # 3. Dataset Size Graphs
 ## 40x to 400x Optimal dataset - SAC+BC (Train, Test100, Test0) vs. SAC (Train, Test100, Test0) vs. BC (Train, Test100, Test0)
@@ -205,46 +294,83 @@ def plotGeneralizationGraph(dataset_quality: str, training_steps: int):
 ## 80x to 400x Suboptimal dataset - SAC (Train, Test100, Test0)
 ## 80x to 400x Suboptimal dataset - BC (Train, Test100, Test0)
 
-def plotVariousDatasetSizeGraph(dataset_quality: str, algorithm: str):
+def plotVariousDatasetSizeGraph(dataset_quality: str):
     
-    ## dataset sizes: 80, 160, 320 -> so need model trained & evaluated on each of them for only 25k training steps
+    ## dataset sizes: 40, 80, 200, 400  -> so need model trained & evaluated on each of them for only 20k training steps
     
     if dataset_quality == 'optimal':
         dataset_average = 1.0
-        dataset_size = "40"
+        training_steps = 20000
     elif dataset_quality == 'suboptimal':
         dataset_average = 0.5
-        dataset_size = "80"
+        training_steps = 20000
     elif dataset_quality == 'mixed':
         dataset_average = 1.0
-        dataset_size = "80"
+        training_steps = 50000
     
-    df = merge_all_results(
-        [
-            f'models/{algorithm}/{dataset_quality}__{dataset_size}_1/results.csv', 
-            f'models/{algorithm}/{dataset_quality}__{dataset_size}_2/results.csv', 
-            f'models/{algorithm}/{dataset_quality}__{dataset_size}_3/results.csv', 
-            f'models/{algorithm}/{dataset_quality}__{dataset_size}_4/results.csv', 
-            f'models/{algorithm}/{dataset_quality}__{dataset_size}_5/results.csv', 
+    df = pd.DataFrame()
+    
+    for dataset_size in [40, 80, 200, 400]:
+        for algorithm in ['bc', 'sac', 'sac_bc']:
+        
+            new_df = merge_all_results(
+                [
+                    f'models/{algorithm}/{dataset_quality}_{dataset_size}_10/results.csv', 
+                    f'models/{algorithm}/{dataset_quality}_{dataset_size}_11/results.csv', 
+                    f'models/{algorithm}/{dataset_quality}_{dataset_size}_12/results.csv', 
+                    f'models/{algorithm}/{dataset_quality}_{dataset_size}_13/results.csv', 
+                    f'models/{algorithm}/{dataset_quality}_{dataset_size}_14/results.csv', 
+                ])
             
-            f'models/{algorithm}/{dataset_quality}__160_1/results.csv', 
-            f'models/{algorithm}/{dataset_quality}__160_2/results.csv', 
-            f'models/{algorithm}/{dataset_quality}__160_3/results.csv', 
-            f'models/{algorithm}/{dataset_quality}__160_4/results.csv', 
-            f'models/{algorithm}/{dataset_quality}__160_5/results.csv', 
-            
-            f'models/{algorithm}/{dataset_quality}__320_1/results.csv', 
-            f'models/{algorithm}/{dataset_quality}__320_2/results.csv', 
-            f'models/{algorithm}/{dataset_quality}__320_3/results.csv', 
-            f'models/{algorithm}/{dataset_quality}__320_4/results.csv', 
-            f'models/{algorithm}/{dataset_quality}__320_5/results.csv', 
-        ])
+            df = pd.concat([df, new_df])
     
-    # TODO: plot the graph & create the models & the add dataset_size to the results.csv
+    print(df)
     
+    # TODO: plot graphs
+    # x axis -> dataset_size
+    # y axis -> Mean Reward
+    # line chart
+    # only display the given dataset_quality 
     
+    algorithm_base_colors = {
+        'BC': 'red',
+        'SAC': 'blue',
+        'SAC+BC': 'green',
+    }
     
+    environment_lightness = {
+        'Train': 1.5,  # lighter
+        'Test_Reachable': 1.0,  # base color
+        'Test_Unreachable': 0.5  # darker
+    }
     
+    df_filtered = df[df['Steps'] == training_steps]
+    # Group by Size, Algorithm, and Environment, then calculate the mean of Reward_mean
+    df_grouped_env = df_filtered.groupby(['Size', 'Algorithm', 'Environment']).agg({'Reward_mean': 'mean'}).reset_index()
+
+    # Plot
+    plt.rcParams.update({'font.size': 15})  # Adjust this value as needed
+    plt.figure(figsize=(14, 10))
+    for algorithm in df_grouped_env['Algorithm'].unique():
+        for environment in df_grouped_env['Environment'].unique():
+            subset = df_grouped_env[(df_grouped_env['Algorithm'] == algorithm) & (df_grouped_env['Environment'] == environment)]
+            color = adjust_color_lightness(algorithm_base_colors[algorithm], environment_lightness[environment])
+            plt.plot(subset['Size'], subset['Reward_mean'], marker='o', label=f'{algorithm} - {environment}', color=color)
+
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.ylim(0, 1.005)
+    plt.axhline(y=dataset_average, color='purple', linestyle='--', linewidth=2, label=f'{dataset_quality.capitalize()} Dataset Average')    
+
+    plt.xticks(df_grouped_env['Size'].unique())    
+    plt.xlabel('Dataset Size (Episodes)')
+    plt.ylabel('Reward Mean')
+    plt.title(f'Increasing {dataset_quality.capitalize()} Dataset Size (40 to 400 Episodes) - {int(training_steps / 1000)}k Training Steps')
+    plt.legend(loc='best')
+    plt.grid(True)
+    plt.savefig(f'results/dataset_size/size_{dataset_quality}')
+    # plt.show()
+
+
 
 
 
@@ -318,7 +444,7 @@ def merge_all_results(result_csv_paths: List[str]):
     merged_df['Environment'] = pd.Categorical(merged_df['Environment'], categories=['Train', 'Test_Reachable', 'Test_Unreachable'], ordered=True)
     
 
-    print(merged_df)
+    # print(merged_df)
     return merged_df
 
 
@@ -387,14 +513,18 @@ def main():
     
     
     # results
-    # plotLearningCurve(dataset_quality='mixed', algorithm = 'sac')    
-    plotGeneralizationGraph(dataset_quality = 'mixed', training_steps = 50000)
+    # plotLearningCurve(dataset_quality='mixed', algorithm = 'sac_bc')    
+    # plotGeneralizationGraph(dataset_quality = 'mixed', training_steps = 50000)
+    # plotTrainingEnvironmentGraph(training_steps = 20000)
+    plotVariousDatasetSizeGraph(dataset_quality = 'mixed')
+    plotVariousDatasetSizeGraph(dataset_quality = 'optimal')
+    plotVariousDatasetSizeGraph(dataset_quality = 'suboptimal')
+
     
 
 if __name__ == "__main__":
     main()
     
     
-
     
     
