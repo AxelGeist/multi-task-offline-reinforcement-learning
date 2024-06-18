@@ -36,10 +36,8 @@ env = gym_wrapper(gym.make('MiniGrid-FourRooms-v1',
 
 
 
-def generate_dataset():
+def generate_dataset(num_episodes: int):
 
-    # since it has a success rate of 100%, 40 episodes will solve all 40 tasks
-    num_episodes = 40
     dataset = { # replay buffer in the D4RL format
         'observations': [],
         'actions': [],
@@ -68,7 +66,7 @@ def generate_dataset():
                 q_values = find_all_action_values(state[:2], state[2], state[3:5], state[5:], 0.99)
                 action = np.argmax(q_values)
                 print("OPTIMAL")
-    
+
             next_obs, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
 
@@ -102,4 +100,4 @@ def generate_dataset():
 
 
 if __name__ == "__main__":
-    generate_dataset()
+    generate_dataset(90)

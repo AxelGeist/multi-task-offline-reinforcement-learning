@@ -35,10 +35,8 @@ env = gym_wrapper(gym.make('MiniGrid-FourRooms-v1',
 
 
 
-def generate_dataset():
+def generate_dataset(num_episodes: int):
 
-    # use 80 to 400 episodes, depending on the success rate of the suboptimal model -> better model = less episodes
-    num_episodes = 40
     dataset = { # replay buffer in the D4RL format
         'observations': [],
         'actions': [],
@@ -92,4 +90,4 @@ def generate_dataset():
 
 
 if __name__ == "__main__":
-    generate_dataset()
+    generate_dataset(400)

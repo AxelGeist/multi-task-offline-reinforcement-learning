@@ -40,11 +40,10 @@ class OptimalAgent:
 
 
 # with Display(visible=False) as disp:
-def generate_dataset():
+def generate_dataset(num_episodes: int):
     # Instantiate the agent
     agent = OptimalAgent()
 
-    num_episodes = 400 # use 40 as we have 40 mazes, else we have duplicates. Only if it is not optimal we should have more than 40 
     dataset = { # replay buffer in the D4RL format
         'observations': [],
         'actions': [],
@@ -100,4 +99,4 @@ def generate_dataset():
     
     
 if __name__ == "__main__":
-    generate_dataset()
+    generate_dataset(400)

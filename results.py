@@ -39,7 +39,29 @@ import matplotlib.colors as mcolors
 import colorsys
 
 
-# Function to adjust color lightness
+############# Utility Functions #############################################################
+
+def merge_all_results(result_csv_paths: List[str]):
+    
+    merged_df = pd.DataFrame()
+    
+    for csv_path in result_csv_paths:
+        df = pd.read_csv(csv_path)
+        merged_df = pd.concat([merged_df, df])
+        
+        
+    # Rename environments
+    merged_df['Environment'] = merged_df['Environment'].replace('train', 'Train')
+    merged_df['Environment'] = merged_df['Environment'].replace('test_100', 'Test_Reachable')
+    merged_df['Environment'] = merged_df['Environment'].replace('test_0', 'Test_Unreachable')
+    
+    # Order from Train to Test_Unreachable
+    merged_df['Environment'] = pd.Categorical(merged_df['Environment'], categories=['Train', 'Test_Reachable', 'Test_Unreachable'], ordered=True)
+    
+
+    # print(merged_df)
+    return merged_df
+
 def adjust_color_lightness(color, amount=0.5):
     """
     Adjusts the lightness of a given color.
@@ -56,16 +78,11 @@ def adjust_color_lightness(color, amount=0.5):
     r, g, b = colorsys.hls_to_rgb(h, new_l, s)
     return mcolors.to_hex((r, g, b))
 
+
+
+############# Plot Functions #############################################################
+
 # 0. Learning Curve of BC, SAC, SAC+BC in different Environments & Datasets -> 5 seeds
-## BC on optimal dataset over 50k training steps 
-## BC on Suboptimal dataset over 50k training steps
-## BC on Mixed dataset over 50k training steps
-## SAC on optimal dataset over 50k training steps
-## SAC on Suboptimal dataset over 50k training steps
-## SAC on Mixed dataset over 50k training steps
-## SAC+BC on optimal dataset over 50k training steps
-## SAC+BC on Suboptimal dataset over 50k training steps
-## SAC+BC on Mixed dataset over 50k training steps
 
 def plotLearningCurve(dataset_quality: str, algorithm: str):
     
@@ -88,7 +105,6 @@ def plotLearningCurve(dataset_quality: str, algorithm: str):
             f'models/{algorithm}/{dataset_quality}_{dataset_size}_14/results.csv', 
         ])
     
-
     
     print(df)
     
@@ -137,13 +153,7 @@ def plotLearningCurve(dataset_quality: str, algorithm: str):
 
 
 
-
-
-
-# 1. Generalization to new Environments -> use the data above in 25k steps (show deviation within the 5 seeds)
-## 40x Optimal dataset - BC (Train, Test100, Test0) vs. SAC+BC (Train, Test100, Test0) vs. SAC (Train, Test100, Test0)
-## 80x Suboptimal dataset - BC (Train, Test100, Test0) vs. SAC+BC (Train, Test100, Test0) vs. SAC (Train, Test100, Test0)
-## 80x Mixed dataset - BC (Train, Test100, Test0) vs. SAC+BC (Train, Test100, Test0) vs. SAC (Train, Test100, Test0)
+# 1. Generalization to new Environments
 
 def plotGeneralizationGraph(dataset_quality: str, training_steps: int):
     # TODO: add 15 links (5 for each algorithms results, since 5 seeds)
@@ -213,11 +223,6 @@ def plotGeneralizationGraph(dataset_quality: str, training_steps: int):
 
 
 
-# X. Data Diversity Graphs -> not possible, since I dont have enough training levels (hundreds of different datasets)
-## Number of training levels X to X - SAC+BC (Train, Test100, Test0)
-## Number of training levels X to X- BC (Train, Test100, Test0)
-
-
 # 2. Training & Testing on the Same Environment
 
 def plotTrainingEnvironmentGraph(training_steps: int):
@@ -266,7 +271,6 @@ def plotTrainingEnvironmentGraph(training_steps: int):
     ax.set_xlabel('')
     plt.xticks(rotation=0)
     ax.set_xticklabels([label.get_text().capitalize() for label in ax.get_xticklabels()])
-
     
     # ax.set_xticks(range(len(reward_mean_avg_env.index)))
     # ax.set_xticklabels(reward_mean_avg_env.index, rotation=0)
@@ -284,15 +288,7 @@ def plotTrainingEnvironmentGraph(training_steps: int):
 
 
 
-
-
-
-
 # 3. Dataset Size Graphs
-## 40x to 400x Optimal dataset - SAC+BC (Train, Test100, Test0) vs. SAC (Train, Test100, Test0) vs. BC (Train, Test100, Test0)
-## 80x to 400x Suboptimal dataset - SAC+BC (Train, Test100, Test0)
-## 80x to 400x Suboptimal dataset - SAC (Train, Test100, Test0)
-## 80x to 400x Suboptimal dataset - BC (Train, Test100, Test0)
 
 def plotVariousDatasetSizeGraph(dataset_quality: str):
     
@@ -325,12 +321,6 @@ def plotVariousDatasetSizeGraph(dataset_quality: str):
             df = pd.concat([df, new_df])
     
     print(df)
-    
-    # TODO: plot graphs
-    # x axis -> dataset_size
-    # y axis -> Mean Reward
-    # line chart
-    # only display the given dataset_quality 
     
     algorithm_base_colors = {
         'BC': 'red',
@@ -401,130 +391,59 @@ CONFIG = {
 ############# Dataset Generation ######################################################
 
 def generate_datasets():
-    # TODO: implement and import dataset_gen_mixed_policy
-    dataset_gen_optimal_policy.generate_dataset()
-    dataset_gen_suboptimal_policy.generate_dataset()
-    dataset_gen_mixed_policy.generate_dataset()
+    for num_episodes in [40, 80, 200, 400]:
+        dataset_gen_optimal_policy.generate_dataset(num_episodes)
+        dataset_gen_suboptimal_policy.generate_dataset(num_episodes)
+        dataset_gen_mixed_policy.generate_dataset(num_episodes)
 
 ############# Training ###############################################################
 
-def train_rl_models(dataset_name):
-    dataset_path = CONFIG["training_datasets"][dataset_name]
-    # sac.train((dataset_name, dataset_path))
-    # sac_bc.train((dataset_name, dataset_path))
-    bc.train((dataset_name, dataset_path))
 
 ############# Evaluation #############################################################
 
-def evaluate_rl_models(model_type):
-    model_paths = CONFIG["evaluation_models"][model_type]
-    sac_eval_data = sac.eval(model_paths=model_paths) # Works!
-    sac_bc_eval_data = sac_bc.eval(model_paths=model_paths) # Works!
-    bc_eval_data = bc.eval(model_paths=model_paths)
-    return bc_eval_data, sac_bc_eval_data, sac_eval_data
-
-
-############# Merge All Results #############################################################
-
-def merge_all_results(result_csv_paths: List[str]):
-    
-    merged_df = pd.DataFrame()
-    
-    for csv_path in result_csv_paths:
-        df = pd.read_csv(csv_path)
-        merged_df = pd.concat([merged_df, df])
-        
-        
-    # Rename environments
-    merged_df['Environment'] = merged_df['Environment'].replace('train', 'Train')
-    merged_df['Environment'] = merged_df['Environment'].replace('test_100', 'Test_Reachable')
-    merged_df['Environment'] = merged_df['Environment'].replace('test_0', 'Test_Unreachable')
-    
-    # Order from Train to Test_Unreachable
-    merged_df['Environment'] = pd.Categorical(merged_df['Environment'], categories=['Train', 'Test_Reachable', 'Test_Unreachable'], ordered=True)
-    
-
-    # print(merged_df)
-    return merged_df
 
 
 
 
-############# Plotting ################################################################
 
-def plot_results(bc_eval_data: pd.DataFrame, sac_bc_eval_data: pd.DataFrame, sac_eval_data: pd.DataFrame, ):
-    results = pd.concat([bc_eval_data, sac_bc_eval_data, sac_eval_data])
-    print(results)
-    # Plotting
-    plt.figure(figsize=(10, 9))
-    barplot = sns.barplot(x="Algorithm", y="Reward_mean", hue="Environment", data=results, errorbar="sd", palette="muted")
-    
-    # Add Dataset Line
-    target_line = plt.axhline(1.0, color='grey', linestyle='--', linewidth=2)
-    handles, labels = barplot.get_legend_handles_labels()
-    handles.append(Line2D([0], [0], color='grey', lw=2, linestyle='--'))
-    labels.append('Optimal Dataset Average')
-    plt.legend(handles, labels, title='')
-    
-    plt.title("Four_room - 40x Optimal Dataset")
-    plt.ylabel("Reward_mean")
-    plt.xlabel("")
-    plt.show()
+
 
 ############# Main Execution #########################################################
 
 def main():
     # 1. Generate datasets
-    # generate_datasets()
+    generate_datasets()
     
-    # 2. Choose dataset for training
-    training_dataset_quality = "optimal"  # "optimal" or "suboptimal"
-    # train_rl_models(training_dataset_quality)
-
-    # 3. Choose models for evaluation & plotting
-    evaluation_model_quality = "optimal"  # "optimal" or "suboptimal"
-    # bc_eval_data, sac_bc_eval_data, sac_eval_data = evaluate_rl_models(evaluation_model_quality)
-    # TODO: store those results somehwere?!
-
-    # sac_bc_eval_data = pd.DataFrame({
-    #     'Algorithm': 'SAC+BC',
-    #     'Environment': ['train', 'test_100', 'test_0'],
-    #     'Reward_mean': [1.0, 0.4, 0.3],
-    #     'Reward_std': [0.000000, 0.263391, 0.300000]
-    # })
-
-    # sac_eval_data = pd.DataFrame({
-    #     'Algorithm': 'SAC',
-    #     'Environment': ['train', 'test_100', 'test_0'],
-    #     'Reward_mean': [0.125, 0.075, 0.100],
-    #     'Reward_std': [0.000000, 0.263391, 0.300000]
-    # })
-
-    # bc_eval_data = pd.DataFrame({
-    #     'Algorithm': 'BC',
-    #     'Environment': ['train', 'test_100', 'test_0'],
-    #     'Reward_mean': [1.0, 0.4, 0.3],
-    #     'Reward_std': [0.0, 0.0, 0.0]
-    # })
+    # 2. Tune Hyperparameters
     
-    # 4. Plot results
-    # TODO: fetch the data from the results folder instead
-    # plot_results(bc_eval_data, sac_bc_eval_data, sac_eval_data, )
+    # 3. Train algorithms
     
+    # 4. Evaluate models 
     
-    # results
-    # plotLearningCurve(dataset_quality='mixed', algorithm = 'sac_bc')    
-    # plotGeneralizationGraph(dataset_quality = 'mixed', training_steps = 50000)
-    # plotTrainingEnvironmentGraph(training_steps = 20000)
-    plotVariousDatasetSizeGraph(dataset_quality = 'mixed')
+    # 5. plot results
+    plotLearningCurve(dataset_quality='optimal', algorithm = 'bc')    
+    plotLearningCurve(dataset_quality='suboptimal', algorithm = 'bc')    
+    plotLearningCurve(dataset_quality='mixed', algorithm = 'bc')    
+    plotLearningCurve(dataset_quality='optimal', algorithm = 'sac_')    
+    plotLearningCurve(dataset_quality='suboptimal', algorithm = 'sac')    
+    plotLearningCurve(dataset_quality='mixed', algorithm = 'sac')    
+    plotLearningCurve(dataset_quality='optimal', algorithm = 'sac_bc')    
+    plotLearningCurve(dataset_quality='suboptimal', algorithm = 'sac_bc')    
+    plotLearningCurve(dataset_quality='mixed', algorithm = 'sac_bc')   
+
+    plotGeneralizationGraph(dataset_quality = 'optimal', training_steps = 20000)
+    plotGeneralizationGraph(dataset_quality = 'suboptimal', training_steps = 20000)
+    plotGeneralizationGraph(dataset_quality = 'mixed', training_steps = 50000)
+    
+    plotTrainingEnvironmentGraph(training_steps = 20000)
+    
     plotVariousDatasetSizeGraph(dataset_quality = 'optimal')
     plotVariousDatasetSizeGraph(dataset_quality = 'suboptimal')
+    plotVariousDatasetSizeGraph(dataset_quality = 'mixed')
 
-    
+
+
+
 
 if __name__ == "__main__":
     main()
-    
-    
-    
-    
