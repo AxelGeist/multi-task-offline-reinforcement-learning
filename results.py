@@ -129,22 +129,24 @@ def plotLearningCurve(dataset_quality: str, algorithm: str):
     
     
     # Draw standard deviation as a shaded area in the background
+    plt.rcParams.update({'font.size': 14})  # Adjust this value as needed
     plt.figure(figsize=(12, 8))
 
     for environment in grouped_env["Environment"].unique():
         env_data = grouped_env[grouped_env["Environment"] == environment]
         steps = env_data["Steps"].values
         reward_mean = env_data["Reward_mean"].values
-        # reward_std = env_data["Reward_std"].values
+        reward_std = env_data["Reward_std"].values
+        # plt.errorbar(env_data["Steps"], env_data["Reward_mean"], yerr=env_data["Reward_std"], fmt='-o', capsize=5, label=environment)
         plt.plot(steps, reward_mean, marker='o', label=environment)
-        # plt.fill_between(steps, reward_mean - reward_std, reward_mean + reward_std, alpha=0.2)
+        plt.fill_between(steps, reward_mean - reward_std, reward_mean + reward_std, alpha=0.2)
 
     dataset_line = plt.axhline(y=dataset_average, color='red', linestyle='dotted', linewidth=1, label=f'{dataset_quality} Dataset Average')
     dataset_line.set_dashes([5, 10])  # 5 points on, 10 points off
 
     plt.xlabel("Training Steps")
-    plt.ylabel("Mean Reward")
-    plt.title(f"{algorithm.upper()} Learning Curve - {dataset_quality.capitalize()} Dataset with {dataset_size} Transitions - Averaged over 5 seeds")
+    plt.ylabel("Reward Mean")
+    plt.title(f"{algorithm.upper()} Learning Curve - {dataset_quality.capitalize()} Dataset with {dataset_size} Episodes")
     plt.legend()
     plt.grid(True)
     
@@ -202,10 +204,11 @@ def plotGeneralizationGraph(dataset_quality: str, training_steps: int):
     reward_mean_std = reward_mean_std.unstack()
 
     # Plotting
+    plt.rcParams.update({'font.size': 13})  # Adjust this value as needed
     fig, ax = plt.subplots(figsize=(8, 6))
     reward_mean_avg_env.plot(kind='bar', yerr=reward_mean_std, capsize=4, ax=ax,
         color=['skyblue', 'lightgreen', 'salmon'])
-    ax.set_title(f'{dataset_quality.capitalize()} Dataset with {dataset_size} Transitions - {int(training_steps / 1000)}k Training Steps')
+    ax.set_title(f'{dataset_quality.capitalize()} Dataset with {dataset_size} Episodes - {int(training_steps / 1000)}k Training Steps')
     ax.set_ylabel('Reward Mean')
     ax.set_xlabel('')
     ax.set_xticks(range(len(reward_mean_avg_env.index)))
@@ -261,7 +264,8 @@ def plotTrainingEnvironmentGraph(training_steps: int):
     reward_mean_std = df_train.groupby(['Algorithm', 'Dataset'])['Reward_mean'].std().unstack()
 
     # Plotting
-    fig, ax = plt.subplots(figsize=(12, 6))
+    plt.rcParams.update({'font.size': 15})  # Adjust this value as needed
+    fig, ax = plt.subplots(figsize=(8, 6))
 
     reward_mean_avg_env.T.plot(kind='bar', yerr=reward_mean_std.T, capsize=4, ax=ax,
         color=['skyblue', 'lightgreen', 'salmon'])
@@ -336,7 +340,7 @@ def plotVariousDatasetSizeGraph(dataset_quality: str):
     
     df_filtered = df[df['Steps'] == training_steps]
     # Group by Size, Algorithm, and Environment, then calculate the mean of Reward_mean
-    df_grouped_env = df_filtered.groupby(['Size', 'Algorithm', 'Environment']).agg({'Reward_mean': 'mean'}).reset_index()
+    df_grouped_env = df_filtered.groupby(['Size', 'Algorithm', 'Environment']).agg({'Reward_mean': 'mean', 'Reward_std': 'std',}).reset_index()
 
     # Plot
     plt.rcParams.update({'font.size': 15})  # Adjust this value as needed
@@ -344,8 +348,16 @@ def plotVariousDatasetSizeGraph(dataset_quality: str):
     for algorithm in df_grouped_env['Algorithm'].unique():
         for environment in df_grouped_env['Environment'].unique():
             subset = df_grouped_env[(df_grouped_env['Algorithm'] == algorithm) & (df_grouped_env['Environment'] == environment)]
+            print('subset:', subset)
             color = adjust_color_lightness(algorithm_base_colors[algorithm], environment_lightness[environment])
             plt.plot(subset['Size'], subset['Reward_mean'], marker='o', label=f'{algorithm} - {environment}', color=color)
+
+            size = subset["Size"].values
+            reward_mean = subset["Reward_mean"].values
+            reward_std = subset["Reward_std"].values
+            # plt.fill_between(size, reward_mean - reward_std, reward_mean + reward_std, alpha=0.5)
+            plt.errorbar(size, reward_mean, yerr=reward_std, fmt='-o', capsize=5, color=color)
+
 
     plt.grid(axis='y', linestyle='--', alpha=0.7)
     plt.ylim(0, 1.005)
@@ -362,32 +374,6 @@ def plotVariousDatasetSizeGraph(dataset_quality: str):
 
 
 
-
-
-# 4. How much overfitting on the training model performs the best
-# which SAC-N model performs the best on test100_config and test0_config?
-# use models from 0.1-1.0 mean reward on evaluating on training_config
-
-############# Configuration ##########################################################
-
-CONFIG = {
-    "training_datasets": {
-        # "optimal": "./datasets/expert_dataset_iql.pkl",
-        "optimal": "./datasets/optimal_40x.pkl",
-        "suboptimal": "./datasets/suboptimal_80x.pkl"
-    },
-    "evaluation_models": {
-        "optimal": {
-            "sac": "./models/sac/optimal_2999epochs.pt",
-            "bc": "./models/bc/BC_model_optimal.d3",
-        },
-        "suboptimal": {
-            "sac": "./models/sac/suboptimal_2999epochs.pt",
-            "bc": "./models/bc/BC_model_suboptimal.d3"
-        }
-    }
-}
-
 ############# Dataset Generation ######################################################
 
 def generate_datasets():
@@ -396,46 +382,40 @@ def generate_datasets():
         dataset_gen_suboptimal_policy.generate_dataset(num_episodes)
         dataset_gen_mixed_policy.generate_dataset(num_episodes)
 
-############# Training ###############################################################
-
-
-############# Evaluation #############################################################
-
-
-
-
-
-
 
 
 ############# Main Execution #########################################################
 
 def main():
     # 1. Generate datasets
-    generate_datasets()
+    # generate_datasets()
     
     # 2. Tune Hyperparameters
+    # TODO: tune hyperparameters manually with hyperparameter_tuning_bc.py, hyperparameter_tuning_sac.py, hyperparameter_tuning_sac_bc.py
     
     # 3. Train algorithms
+    # TODO: train & save models manually with the train() function in discrete_BC.py, discrete_sac.py, discrete_BC_sac.py
     
     # 4. Evaluate models 
+    # TODO: evaluate models manually with the eval_all_models() function in discrete_BC.py, discrete_sac.py, discrete_BC_sac.py
     
     # 5. plot results
-    plotLearningCurve(dataset_quality='optimal', algorithm = 'bc')    
-    plotLearningCurve(dataset_quality='suboptimal', algorithm = 'bc')    
-    plotLearningCurve(dataset_quality='mixed', algorithm = 'bc')    
-    plotLearningCurve(dataset_quality='optimal', algorithm = 'sac_')    
-    plotLearningCurve(dataset_quality='suboptimal', algorithm = 'sac')    
-    plotLearningCurve(dataset_quality='mixed', algorithm = 'sac')    
-    plotLearningCurve(dataset_quality='optimal', algorithm = 'sac_bc')    
-    plotLearningCurve(dataset_quality='suboptimal', algorithm = 'sac_bc')    
-    plotLearningCurve(dataset_quality='mixed', algorithm = 'sac_bc')   
+    # plotLearningCurve(dataset_quality='optimal', algorithm = 'bc')    
+    # plotLearningCurve(dataset_quality='suboptimal', algorithm = 'bc')    
+    # plotLearningCurve(dataset_quality='mixed', algorithm = 'bc')    
+    # plotLearningCurve(dataset_quality='optimal', algorithm = 'sac')    
+    # plotLearningCurve(dataset_quality='suboptimal', algorithm = 'sac')    
+    # plotLearningCurve(dataset_quality='mixed', algorithm = 'sac')    
+    # plotLearningCurve(dataset_quality='optimal', algorithm = 'sac_bc')    
+    # plotLearningCurve(dataset_quality='suboptimal', algorithm = 'sac_bc')    
+    # plotLearningCurve(dataset_quality='mixed', algorithm = 'sac_bc')   
 
-    plotGeneralizationGraph(dataset_quality = 'optimal', training_steps = 20000)
-    plotGeneralizationGraph(dataset_quality = 'suboptimal', training_steps = 20000)
-    plotGeneralizationGraph(dataset_quality = 'mixed', training_steps = 50000)
+    # plotGeneralizationGraph(dataset_quality = 'optimal', training_steps = 20000)
+    # plotGeneralizationGraph(dataset_quality = 'suboptimal', training_steps = 20000)
+    # plotGeneralizationGraph(dataset_quality = 'mixed', training_steps = 50000)
     
-    plotTrainingEnvironmentGraph(training_steps = 20000)
+    # plotTrainingEnvironmentGraph(training_steps = 20000)
+    # plotTrainingEnvironmentGraph(training_steps = 50000)
     
     plotVariousDatasetSizeGraph(dataset_quality = 'optimal')
     plotVariousDatasetSizeGraph(dataset_quality = 'suboptimal')
