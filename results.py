@@ -367,7 +367,8 @@ def plotVariousDatasetSizeGraph(dataset_quality: str):
     plt.xlabel('Dataset Size (Episodes)')
     plt.ylabel('Reward Mean')
     plt.title(f'Increasing {dataset_quality.capitalize()} Dataset Size (40 to 400 Episodes) - {int(training_steps / 1000)}k Training Steps')
-    plt.legend(loc='best')
+    plt.rcParams.update({'font.size': 10})  # Adjust this value as needed
+    plt.legend(loc='upper left')
     plt.grid(True)
     plt.savefig(f'results/dataset_size/size_{dataset_quality}')
     # plt.show()
@@ -417,8 +418,8 @@ def main():
     # plotTrainingEnvironmentGraph(training_steps = 20000)
     # plotTrainingEnvironmentGraph(training_steps = 50000)
     
-    plotVariousDatasetSizeGraph(dataset_quality = 'optimal')
-    plotVariousDatasetSizeGraph(dataset_quality = 'suboptimal')
+    # plotVariousDatasetSizeGraph(dataset_quality = 'optimal')
+    # plotVariousDatasetSizeGraph(dataset_quality = 'suboptimal')
     plotVariousDatasetSizeGraph(dataset_quality = 'mixed')
 
 
