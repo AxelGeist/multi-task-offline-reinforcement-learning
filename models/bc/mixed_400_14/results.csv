@@ -1,0 +1,7 @@
+Algorithm,Dataset,Size,Environment,Reward_mean,Reward_std,Steps,Seed
+BC,mixed,400,train,0.0,0.0,0,24
+BC,mixed,400,test_100,0.0,0.0,0,24
+BC,mixed,400,test_0,0.0,0.0,0,24
+BC,mixed,400,train,0.825,0.3799671038392666,50000,24
+BC,mixed,400,test_100,0.55,0.4974937185533099,50000,24
+BC,mixed,400,test_0,0.35,0.4769696007084729,50000,24
