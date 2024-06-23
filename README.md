@@ -14,7 +14,7 @@ pip install requirements -r requirements.txt
 ```
 
 ### 2. Open ./results.py
-Follow Instructions in the `main()` Function in `results.py` to Create the Plots
+Follow Instructions in the `main()` Function in `results.py`
 
 ## Environment:
 The environment used is the MiniGrid Four-Room which contain 3 configurations, of which one is the training configuration the other are testing configuration for reachable and unreachable tasks. Every configuration will contain 40 tasks. 
