@@ -1,6 +1,6 @@
 # Experimental Evaluation of the Generalizability of the Soft Actor-Critic + Behavioral Cloning Algorithm
 
-This GitHub repository contains the code, datasets, models and results of the research project CSE3000 @ TU Delft. The primary focus of this research is to evaluate the generalization capabilities of the Soft Actor-Critic (SAC) algorithm when combined with Behavioral Cloning (BC). 
+This repository is part of the Research Project CSE3000 @ TU Delft. Other projects can be found [here](https://cse3000-research-project.github.io/2024/Q2).
 
 The research questions were:
 1. Can SAC combined with BC effectively generalize to new tasks within a multi-task reinforcement learning environment?
